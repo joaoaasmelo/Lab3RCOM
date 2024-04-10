@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #define BAUDRATE B9600
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -13,93 +14,13 @@
 
 volatile int STOP=FALSE;
 
-/*typedef state_machine{
-    START,
-    FLAG_RCV,
-    A_RCV,
-    C_RCV,
-    BCC_OK,
-    STOP
-}state_machine_t;
-
-void maquina_estados(int *fd){
-
-    char FLAG = 0x5c, A = 0x03, C = 0x08, BCC1 = A^C;
-    state_machine_t maqstate;
-    char buf[0];
-    int res;
-    maqstate = START;
-
-    while(maqstate!=STOP){
-
-        res = read(fd, buf, 1);
-        buf[res]=0;
-
-        switch(maqstate){
-            case START:
-                if(buf[0] == FLAG){
-                    maqstate = FLAG_RCV;
-                }
-                break;
-            case FLAG_RCV:
-                if(buf[0] == A){
-                    maqstate = A_RCV;
-                }
-                else if(buf[0] == FLAG){
-                    maqstate = FLAG_RCV;
-                }
-                else{
-                    maqstate = START;
-                }
-                break;
-            case A_RCV:
-                if(buf[0] == C){
-                    maqstate = C_RCV;
-                }
-                else if(buf[0] == FLAG){
-                    maqstate = FLAG_RCV;
-                }
-                else{
-                    maqstate = START;
-                }
-                break;
-            case C_RCV:
-                if(buf[0] == (A^C)){
-                    maqstate = BCC_RCV;
-                }
-                else if(buf[0] == FLAG){
-                    maqstate = FLAG_RCV;
-                }
-                else{
-                    maqstate = START;
-                }
-                break;
-            case BCC_OK:
-                if(buf[0] == FLAG){
-                    maqstate = STOP;
-                }
-                else{
-                    maqstate = START;
-                }
-                break;
-            case STOP:
-                break;
-        }
-
-        print("%x\n", maqstate);
-    }
-}*/
-#include <stdio.h>
-#include <unistd.h>
-
 typedef enum {
     START,
     FLAG_RCV,
     A_RCV,
     C_RCV,
-    BCC_RCV,
     BCC_OK,
-    STOP
+    STOPST
 } state_t;
 
 void maquina_estados(int *fd) {
@@ -152,17 +73,14 @@ void maquina_estados(int *fd) {
                     maqstate = START;
                 }
                 break;
-            case BCC_RCV:
-                // Aqui você deve verificar o próximo byte para o BCC2 (se houver) ou prosseguir para BCC_OK
-                break;
             case BCC_OK:
                 if (buf[0] == FLAG) {
-                    maqstate = STOP;
+                    maqstate = STOPST;
                 } else {
                     maqstate = START;
                 }
                 break;
-            case STOP:
+            case STOPST:
                 return; // Termina a função
         }
     }
