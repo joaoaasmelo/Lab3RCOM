@@ -47,8 +47,10 @@ void maquina_estados(int *fd) {
                     printf("FLAG_RCV -> A_RCV\n");
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
+                    print("FLAG_RCV -> FLAG_RCV\n")
                 } else {
                     maqstate = START;
+                    printf("FLAG_RCV -> START\n");
                 }
                 break;
             case A_RCV:
@@ -57,8 +59,10 @@ void maquina_estados(int *fd) {
                     printf("A_RCV -> C_RCV\n");
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
+                    printf("A_RCV -> FLAG_RCV\n");
                 } else {
                     maqstate = START;
+                    printf("A_RCV -> START\n");
                 }
                 break;
             case C_RCV:
@@ -67,8 +71,10 @@ void maquina_estados(int *fd) {
                     printf("C_RCV -> BCC_OK\n");
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
+                    printf("C_RCV -> FLAG_RCV\n");
                 } else {
                     maqstate = START;
+                    printf("C_RCV -> START\n");
                 }
                 break;
             case BCC_OK:
@@ -77,6 +83,7 @@ void maquina_estados(int *fd) {
                     printf("BCC_OK -> STOP\n")
                 } else {
                     maqstate = START;
+                    printf("BCC_OK -> START\n");
                 }
                 break;
         }
@@ -140,10 +147,6 @@ int main(int argc, char** argv)
     
     maquina_estados(&fd);
 
-    /*
-    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião
-    */
-    
     sleep(1);
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
