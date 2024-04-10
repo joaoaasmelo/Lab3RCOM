@@ -44,11 +44,13 @@ void maquina_estados(int *fd) {
             case START:
                 if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
+                    printf("START -> FLAG_RCV\n");
                 }
                 break;
             case FLAG_RCV:
                 if (buf[0] == A) {
                     maqstate = A_RCV;
+                    printf("FLAG_RCV -> A_RCV\n");
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
                 } else {
@@ -58,6 +60,7 @@ void maquina_estados(int *fd) {
             case A_RCV:
                 if (buf[0] == C) {
                     maqstate = C_RCV;
+                    printf("A_RCV -> C_RCV\n");
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
                 } else {
@@ -66,7 +69,8 @@ void maquina_estados(int *fd) {
                 break;
             case C_RCV:
                 if (buf[0] == BCC1) {
-                    maqstate = BCC_RCV;
+                    maqstate = BCC_OK;
+                    printf("C_RCV -> BCC_OK\n");
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
                 } else {
@@ -76,11 +80,13 @@ void maquina_estados(int *fd) {
             case BCC_OK:
                 if (buf[0] == FLAG) {
                     maqstate = STOPST;
+                    printf("BCC_OK -> STOPST\n")
                 } else {
                     maqstate = START;
                 }
                 break;
             case STOPST:
+                printf("STOPST\n");
                 return; // Termina a função
         }
     }
