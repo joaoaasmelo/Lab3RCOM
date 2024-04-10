@@ -12,15 +12,13 @@
 #define FALSE 0
 #define TRUE 1
 
-volatile int STOP=FALSE;
-
 typedef enum {
     START,
     FLAG_RCV,
     A_RCV,
     C_RCV,
     BCC_OK,
-    STOPST
+    STOP
 } state_t;
 
 void maquina_estados(int *fd) {
@@ -33,12 +31,8 @@ void maquina_estados(int *fd) {
     char buf[256]; // Tamanho do array buf ajustado
 
     while (1) {
-        int res = read(*fd, buf, sizeof(buf) - 1); // Corrigido o tamanho do buffer e ajustado o índice de leitura
-        if (res < 0) {
-            perror("read");
-            return; // Termina a função em caso de erro
-        }
-        buf[res] = '\0'; // Adiciona terminador nulo para tratar buf como uma string
+        int res = read(*fd, buf, 1);
+        buf[res] = '\0';
 
         switch (maqstate) {
             case START:
@@ -79,14 +73,14 @@ void maquina_estados(int *fd) {
                 break;
             case BCC_OK:
                 if (buf[0] == FLAG) {
-                    maqstate = STOPST;
-                    printf("BCC_OK -> STOPST\n")
+                    maqstate = STOP;
+                    printf("BCC_OK -> STOP\n")
                 } else {
                     maqstate = START;
                 }
                 break;
-            case STOPST:
-                printf("STOPST\n");
+            case STOP:
+                printf("STOP\n");
                 return; // Termina a função
         }
     }
