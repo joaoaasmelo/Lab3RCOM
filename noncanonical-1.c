@@ -30,7 +30,7 @@ void maquina_estados(int *fd) {
     state_t maqstate = START;
     char buf[256]; // Tamanho do array buf ajustado
 
-    while (1) {
+    while (maqstate != STOP) {
         int res = read(*fd, buf, 1);
         buf[res] = '\0';
 
@@ -79,11 +79,10 @@ void maquina_estados(int *fd) {
                     maqstate = START;
                 }
                 break;
-            case STOP:
-                printf("STOP\n");
-                return; // Termina a função
         }
     }
+    printf("STOP\n");
+    return; // Termina a função
 }
 
 
