@@ -77,22 +77,11 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-
-
-    /*for (i = 0; i < 5; i++) {
-        
-        buf[0] = flag;
-        buf[1] = A;
-        buf[2] = 
-    }*/
-
-
     char flag = 0x5c, A = 0x03, SET = 0x08, BCC = A^SET;
     buf[0] = flag;
     buf[1] = A;
     buf[2] = SET;
     buf[3] = BCC;
-    //printf("%x\n", BCC);
     buf[4] = flag;
 
     /*testing*/

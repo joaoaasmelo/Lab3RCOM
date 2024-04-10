@@ -71,15 +71,6 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-
-    /*
-    for (i = 0; i < 255; i++) {
-        buf[i] = 'a';
-    }
-
-    //testing
-    buf[25] = '\n';*/
-
     char FLAG = 0x5c, A = 0x03, C = 0x08, BCC1 = A^C;
 
     buf[0] = FLAG;
