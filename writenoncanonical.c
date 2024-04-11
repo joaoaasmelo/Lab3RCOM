@@ -12,7 +12,89 @@
 #define FALSE 0
 #define TRUE 1
 
-volatile int STOP=FALSE;
+typedef enum {
+    START,
+    FLAG_RCV,
+    A_RCV,
+    C_RCV,
+    BCC_OK,
+    STOP
+} state_t;
+
+void maquina_estados(int *fd) {
+    const char FLAG = 0x5c;
+    const char A = 0x01; //ja ta mudado par o UA
+    const char C = 0x06; //ja ta mudado par o UA
+    const char BCC1 = A ^ C;
+    
+    state_t maqstate = START;
+    char buf[2]; // Tamanho do array buf ajustado para 2, se der erro mudar para 256
+
+    while (maqstate != STOP) {
+        int res = read(*fd, buf, 1);
+        buf[res] = '\0';
+
+        switch (maqstate) {
+            case START:
+                if (buf[0] == FLAG) {
+                    maqstate = FLAG_RCV;
+                    printf("START -> FLAG_RCV\n");
+                }
+                break;
+            case FLAG_RCV:
+                if (buf[0] == A) {
+                    maqstate = A_RCV;
+                    printf("FLAG_RCV -> A_RCV\n");
+                    printf("FLAG = %x\n", buf[0]);
+                } else if (buf[0] == FLAG) {
+                    maqstate = FLAG_RCV;
+                    print("FLAG_RCV -> FLAG_RCV\n")
+                } else {
+                    maqstate = START;
+                    printf("FLAG_RCV -> START\n");
+                }
+                break;
+            case A_RCV:
+                if (buf[0] == C) {
+                    maqstate = C_RCV;
+                    printf("A_RCV -> C_RCV\n");
+                    printf("A = %x\n", buf[0]);
+                } else if (buf[0] == FLAG) {
+                    maqstate = FLAG_RCV;
+                    printf("A_RCV -> FLAG_RCV\n");
+                } else {
+                    maqstate = START;
+                    printf("A_RCV -> START\n");
+                }
+                break;
+            case C_RCV:
+                if (buf[0] == BCC1) {
+                    maqstate = BCC_OK;
+                    printf("C_RCV -> BCC_OK\n");
+                    printf("C = %x\n", buf[0]);
+                } else if (buf[0] == FLAG) {
+                    maqstate = FLAG_RCV;
+                    printf("C_RCV -> FLAG_RCV\n");
+                } else {
+                    maqstate = START;
+                    printf("C_RCV -> START\n");
+                }
+                break;
+            case BCC_OK:
+                if (buf[0] == FLAG) {
+                    maqstate = STOP;
+                    printf("BCC_OK -> STOP\n");
+                    printf("BCC1 = %x\n", buf[0]);
+                } else {
+                    maqstate = START;
+                    printf("BCC_OK -> START\n");
+                }
+                break;
+        }
+    }
+    printf("STOP\n");
+    return; // Termina a função
+}
 
 int main(int argc, char** argv)
 {
@@ -82,30 +164,14 @@ int main(int argc, char** argv)
     res = write(fd,buf,5);
     printf("%d bytes written\n", res);
 
-    while (STOP==FALSE) {
-        res = read(fd,buf,5);
-        buf[res]=0;
+    maquina_estados(&fd);
 
-        printf("FLAG = %x\n", buf[0]);
-        printf("A = %x\n", buf[1]);
-        printf("C = %x\n", buf[2]);
-        printf("BCC1 = %x\n", buf[3]);
-        printf("FLAG = %x\n", buf[4]);
-
-        if (buf[0]=='z') STOP=TRUE;
-    }
-
-    /*
-    O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar
-    o indicado no guião
-    */
    sleep(1);
 
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
         perror("tcsetattr");
         exit(-1);
     }
-
 
     close(fd);
     return 0;

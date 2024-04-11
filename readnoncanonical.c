@@ -28,7 +28,7 @@ void maquina_estados(int *fd) {
     const char BCC1 = A ^ C;
     
     state_t maqstate = START;
-    char buf[256]; // Tamanho do array buf ajustado
+    char buf[2]; // Tamanho do array buf ajustado para 2, se der erro mudar para 256
 
     while (maqstate != STOP) {
         int res = read(*fd, buf, 1);
@@ -45,6 +45,7 @@ void maquina_estados(int *fd) {
                 if (buf[0] == A) {
                     maqstate = A_RCV;
                     printf("FLAG_RCV -> A_RCV\n");
+                    printf("FLAG = %x\n", buf[0]);
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
                     print("FLAG_RCV -> FLAG_RCV\n")
@@ -57,6 +58,7 @@ void maquina_estados(int *fd) {
                 if (buf[0] == C) {
                     maqstate = C_RCV;
                     printf("A_RCV -> C_RCV\n");
+                    printf("A = %x\n", buf[0]);
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
                     printf("A_RCV -> FLAG_RCV\n");
@@ -69,6 +71,7 @@ void maquina_estados(int *fd) {
                 if (buf[0] == BCC1) {
                     maqstate = BCC_OK;
                     printf("C_RCV -> BCC_OK\n");
+                    printf("C = %x\n", buf[0]);
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
                     printf("C_RCV -> FLAG_RCV\n");
@@ -80,7 +83,8 @@ void maquina_estados(int *fd) {
             case BCC_OK:
                 if (buf[0] == FLAG) {
                     maqstate = STOP;
-                    printf("BCC_OK -> STOP\n")
+                    printf("BCC_OK -> STOP\n");
+                    printf("BCC1 = %x\n", buf[0]);
                 } else {
                     maqstate = START;
                     printf("BCC_OK -> START\n");
@@ -147,8 +151,26 @@ int main(int argc, char** argv)
     
     maquina_estados(&fd);
 
-    sleep(1);
-    tcsetattr(fd,TCSANOW,&oldtio);
+    char FLAG = 0x5c, A = 0x01, C = 0x06, BCC1 = A^C;
+
+    char buf[5];
+
+    buf[0] = FLAG;
+    buf[1] = A;
+    buf[2] = C;
+    buf[3] = BCC1;
+    buf[4] = FLAG;
+
+    res = write(fd,buf,5);
+    printf("%d bytes written\n", res);
+
+   sleep(1);
+
+    if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
+        perror("tcsetattr");
+        exit(-1);
+    }
+
     close(fd);
     return 0;
 }
