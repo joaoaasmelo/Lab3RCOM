@@ -1,10 +1,11 @@
-/*Non-Canonical Input Processing*/
-#include <stdlib.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 #define BAUDRATE B9600
 #define MODEMDEVICE "/dev/ttyS1"
@@ -48,7 +49,7 @@ void maquina_estados(int *fd) {
                     printf("FLAG = %x\n", buf[0]);
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
-                    print("FLAG_RCV -> FLAG_RCV\n")
+                    printf("FLAG_RCV -> FLAG_RCV\n");
                 } else {
                     maqstate = START;
                     printf("FLAG_RCV -> START\n");
@@ -105,7 +106,8 @@ int main(int argc, char** argv)
 
     if ( (argc < 2) ||
          ((strcmp("/dev/ttyS0", argv[1])!=0) &&
-          (strcmp("/dev/ttyS5", argv[1])!=0) )) {
+          (strcmp("/dev/ttyS5", argv[1])!=0) &&
+          (strcmp("/dev/ttyS10", argv[1])!=0) )) {
         printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS5\n");
         exit(1);
     }

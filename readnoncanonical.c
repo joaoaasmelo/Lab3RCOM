@@ -6,6 +6,7 @@
 #include <termios.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #define BAUDRATE B9600
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -48,7 +49,7 @@ void maquina_estados(int *fd) {
                     printf("FLAG = %x\n", buf[0]);
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
-                    print("FLAG_RCV -> FLAG_RCV\n")
+                    printf("FLAG_RCV -> FLAG_RCV\n");
                 } else {
                     maqstate = START;
                     printf("FLAG_RCV -> START\n");
@@ -104,7 +105,8 @@ int main(int argc, char** argv)
 
     if ( (argc < 2) ||
          ((strcmp("/dev/ttyS0", argv[1])!=0) &&
-          (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+          (strcmp("/dev/ttyS1", argv[1])!=0) &&
+          (strcmp("/dev/ttyS11", argv[1])!=0) )) {
         printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
         exit(1);
     }
