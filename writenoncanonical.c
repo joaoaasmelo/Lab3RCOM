@@ -1,4 +1,3 @@
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -45,8 +44,8 @@ void maquina_estados(int *fd) {
             case FLAG_RCV:
                 if (buf[0] == A) {
                     maqstate = A_RCV;
-                    printf("FLAG_RCV -> A_RCV\n");
                     printf("FLAG = %x\n", buf[0]);
+                    printf("FLAG_RCV -> A_RCV\n");
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
                     printf("FLAG_RCV -> FLAG_RCV\n");
@@ -58,8 +57,8 @@ void maquina_estados(int *fd) {
             case A_RCV:
                 if (buf[0] == C) {
                     maqstate = C_RCV;
-                    printf("A_RCV -> C_RCV\n");
                     printf("A = %x\n", buf[0]);
+                    printf("A_RCV -> C_RCV\n");
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
                     printf("A_RCV -> FLAG_RCV\n");
@@ -71,8 +70,8 @@ void maquina_estados(int *fd) {
             case C_RCV:
                 if (buf[0] == BCC1) {
                     maqstate = BCC_OK;
-                    printf("C_RCV -> BCC_OK\n");
                     printf("C = %x\n", buf[0]);
+                    printf("C_RCV -> BCC_OK\n");
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
                     printf("C_RCV -> FLAG_RCV\n");
@@ -84,8 +83,8 @@ void maquina_estados(int *fd) {
             case BCC_OK:
                 if (buf[0] == FLAG) {
                     maqstate = STOP;
-                    printf("BCC_OK -> STOP\n");
                     printf("BCC1 = %x\n", buf[0]);
+                    printf("BCC_OK -> STOP\n");
                 } else {
                     maqstate = START;
                     printf("BCC_OK -> START\n");
@@ -168,7 +167,7 @@ int main(int argc, char** argv)
 
     maquina_estados(&fd);
 
-   sleep(1);
+    sleep(1);
 
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
         perror("tcsetattr");
