@@ -153,7 +153,7 @@ int main(int argc, char** argv)
     
     maquina_estados(&fd);
 
-    char FLAG = 0x5c, A = 0x01, C = 0x06, BCC1 = A^C;
+    char FLAG = 0x5c, A = 0x01 , C = 0x06, BCC1 = A^C;
 
     char buf[5];
 

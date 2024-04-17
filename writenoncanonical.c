@@ -86,7 +86,8 @@ void maquina_estados(int *fd) {
                     maqstate = STOP;
                     printf("BCC_OK -> STOP\n");
                     printf("BCC1 = %x\n", buf[0]);
-                } else {
+                }
+                else {
                     maqstate = START;
                     printf("BCC_OK -> START\n");
                 }
