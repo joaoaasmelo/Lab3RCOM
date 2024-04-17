@@ -17,10 +17,11 @@ typedef enum {
     A_RCV,
     C_RCV,
     BCC_OK,
+    DATA,
     STOP
 } state_t;
 
-void maquina_estados(int *fd) {
+void establishment(int *fd) {
     const char FLAG = 0x5c;
     const char A = 0x03;
     const char C = 0x08;
@@ -95,6 +96,110 @@ void maquina_estados(int *fd) {
     return; // Termina a função
 }
 
+     
+
+void data_transfer(int *fd) {
+    const char FLAG = 0x5c;
+    const char A = 0x01;
+    const char C = 0x11;
+    const char BCC1 = A ^ C;
+    char BCC2 = 0x00;
+    char data[1024];
+    intt i = 0;
+    
+    state_t maqstate = START;
+    char buf[2]; // Tamanho do array buf ajustado para 2, se der erro mudar para 256
+
+    while (maqstate != STOP) {
+        int res = read(*fd, buf, 1);
+        buf[res] = '\0';
+
+        switch (maqstate) {
+            case START:
+                if (buf[0] == FLAG) {
+                    maqstate = FLAG_RCV;
+                    printf("START -> FLAG_RCV\n");
+                }
+                break;
+            case FLAG_RCV:
+                if (buf[0] == A) {
+                    maqstate = A_RCV;
+                    printf("FLAG_RCV -> A_RCV\n");
+                    printf("FLAG = %x\n", buf[0]);
+                } else if (buf[0] == FLAG) {
+                    maqstate = FLAG_RCV;
+                    printf("FLAG_RCV -> FLAG_RCV\n");
+                } else {
+                    maqstate = START;
+                    printf("FLAG_RCV -> START\n");
+                }
+                break;
+            case A_RCV:
+                if (buf[0] == C) {
+                    maqstate = C_RCV;
+                    printf("A_RCV -> C_RCV\n");
+                    printf("A = %x\n", buf[0]);
+                } else if (buf[0] == FLAG) {
+                    maqstate = FLAG_RCV;
+                    printf("A_RCV -> FLAG_RCV\n");
+                } else {
+                    maqstate = START;
+                    printf("A_RCV -> START\n");
+                }
+                break;
+            case C_RCV:
+                if (buf[0] == BCC1) {
+                    maqstate = BCC_OK;
+                    printf("C_RCV -> BCC_OK\n");
+                    printf("C = %x\n", buf[0]);
+                } else if (buf[0] == FLAG) {
+                    maqstate = FLAG_RCV;
+                    printf("C_RCV -> FLAG_RCV\n");
+                } else {
+                    maqstate = START;
+                    printf("C_RCV -> START\n");
+                }
+                break;
+            case BCC_OK:
+                if (buf[0] == FLAG) {
+                    maqstate = STOP;
+                    printf("BCC_OK -> STOP\n");
+                    printf("BCC1 = %x\n", buf[0]);
+                } else {
+                    maqstate = START;
+                    printf("BCC_OK -> START\n");
+                }
+                break;
+             case DATA:
+                if (buf[0] == FLAG) {
+                    maqstate = BCC2_OK;
+                    printf("DATA -> STOP\n");
+                    printf("FLAG = %x\n", buf[0]);
+                } else {
+                    maqstate = DATA;
+                    buf[0] = data[i];
+                    BCC2 ^= data[i];
+                    i++;
+                }
+                break;
+            case BCC2_OK:
+                if (buf[0] == FLAG) {
+                    maqstate = STOP;
+                    printf("BCC2_OK -> STOP\n");
+                    printf("BCC2 = %x\n", buf[0]);
+                } else {
+                    maqstate = START;
+                    printf("BCC2_OK -> START\n");
+                }
+                break;
+        }
+        //para ver BCC2, falta implementar previous value que é o BCC2 e o valor atual é a Flag
+    }
+    printf("STOP\n");
+    return; // Termina a função
+
+}
+
 
 int main(int argc, char** argv)
 {
@@ -149,7 +254,7 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
     
-    maquina_estados(&fd);
+    establishment(&fd);
 
     char FLAG = 0x5c, A = 0x01 , C = 0x06, BCC1 = A^C;
 
