@@ -21,10 +21,22 @@ typedef enum {
     STOP
 } state_t;
 
-void establishment(int *fd) {
+void establishment(int *fd, int fl) {
     const char FLAG = 0x5c;
     const char A = 0x01; //ja ta mudado par o UA
-    const char C = 0x06; //ja ta mudado par o UA
+
+    switch (fl){
+        case 0:
+            const char C = 0x06;
+            break;
+        case 1:
+            const char C = 0x11;
+            break:
+        case 2:
+            const char C = 0x01;
+            break;
+    }
+
     const char BCC1 = A ^ C;
     
     state_t maqstate = START;
@@ -39,13 +51,14 @@ void establishment(int *fd) {
                 if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
                     printf("START -> FLAG_RCV\n");
+                    printf("FLAG = %x\n", buf[0]);
                 }
                 break;
             case FLAG_RCV:
                 if (buf[0] == A) {
                     maqstate = A_RCV;
-                    printf("FLAG = %x\n", buf[0]);
                     printf("FLAG_RCV -> A_RCV\n");
+                    printf("A = %x\n", buf[0]);
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
                     printf("FLAG_RCV -> FLAG_RCV\n");
@@ -57,8 +70,8 @@ void establishment(int *fd) {
             case A_RCV:
                 if (buf[0] == C) {
                     maqstate = C_RCV;
-                    printf("A = %x\n", buf[0]);
                     printf("A_RCV -> C_RCV\n");
+                    printf("C = %x\n", buf[0]);
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
                     printf("A_RCV -> FLAG_RCV\n");
@@ -70,8 +83,8 @@ void establishment(int *fd) {
             case C_RCV:
                 if (buf[0] == BCC1) {
                     maqstate = BCC_OK;
-                    printf("C = %x\n", buf[0]);
                     printf("C_RCV -> BCC_OK\n");
+                    printf("BCC1 = %x\n", buf[0]);
                 } else if (buf[0] == FLAG) {
                     maqstate = FLAG_RCV;
                     printf("C_RCV -> FLAG_RCV\n");
@@ -83,8 +96,8 @@ void establishment(int *fd) {
             case BCC_OK:
                 if (buf[0] == FLAG) {
                     maqstate = STOP;
-                    printf("BCC1 = %x\n", buf[0]);
                     printf("BCC_OK -> STOP\n");
+                    printf("FLAG = %x\n", buf[0]);
                 } else {
                     maqstate = START;
                     printf("BCC_OK -> START\n");
@@ -126,7 +139,7 @@ void data_transfer(int *fd) {
 
 int main(int argc, char** argv)
 {
-    int fd,c, res;
+    int fd, c, res, fl;
     struct termios oldtio,newtio;
     char buf[5];
     int i, sum = 0, speed = 0;
@@ -193,9 +206,16 @@ int main(int argc, char** argv)
     res = write(fd,buf,5);
     printf("%d bytes written\n", res);
 
-    establishment(&fd);
+    fl=0;//conexão
+    establishment(&fd, fl);
 
     data_transfer(&fd);
+
+    fl=1;//RR=1 
+    establishment(&fd, fl);
+
+    fl=2;//RR=0
+    establishment(&fd, fl);
 
     sleep(1);
 
