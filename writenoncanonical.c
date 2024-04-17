@@ -21,7 +21,7 @@ typedef enum {
     STOP
 } state_t;
 
-void maquina_estados(int *fd) {
+void establishment(int *fd) {
     const char FLAG = 0x5c;
     const char A = 0x01; //ja ta mudado par o UA
     const char C = 0x06; //ja ta mudado par o UA
@@ -96,6 +96,34 @@ void maquina_estados(int *fd) {
     return; // Termina a função
 }
 
+void data_transfer(int *fd) {
+    const char FLAG = 0x5c;
+    const char A = 0x03;
+    const char C = 0x08;
+    const char BCC1 = A ^ C;
+    const char BCC2 = 0x00;
+    const char DATA[5] = {0x01, 0x02, 0x03, 0x04, 0x05};
+
+    char buf[11]; // Tamanho do array buf ajustado para 2, se der erro mudar para 256
+
+    buf[0] = FLAG;
+    buf[1] = A;
+    buf[2] = C;
+    buf[3] = BCC1;
+
+    for (int i = 0; i < 5; i++) {
+        buf[4+i] = DATA[i];
+        BCC2 ^= DATA[i];
+    }
+
+    buf[9] = BCC2;
+    buf[10] = FLAG;
+
+    write(*fd, buf, 10);
+
+    return; // Termina a função
+}
+
 int main(int argc, char** argv)
 {
     int fd,c, res;
@@ -165,7 +193,9 @@ int main(int argc, char** argv)
     res = write(fd,buf,5);
     printf("%d bytes written\n", res);
 
-    maquina_estados(&fd);
+    establishment(&fd);
+
+    data_transfer(&fd);
 
     sleep(1);
 
