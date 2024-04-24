@@ -36,6 +36,9 @@ void establishment(int *fd, int fl) {
         case 2:
             C = 0x01;
             break;
+        case 3:
+            C = 0x0a;
+            break;
     }
 
     const char BCC1 = A ^ C;
@@ -238,6 +241,8 @@ int main(int argc, char** argv)
 
     fl=3;//DISC
     hello_bye(&fd, fl);
+
+    establishment(&fd, fl);
 
     fl=4;//UA
     hello_bye(&fd, fl);
