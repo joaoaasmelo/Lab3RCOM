@@ -8,7 +8,7 @@
 
 #define BAUDRATE B9600
 #define MODEMDEVICE "/dev/ttyS1"
-#define _POSIX_SOURCE 1 /* POSIX compliant source */
+#define _POSIX_SOURCE 1
 #define FALSE 0
 #define TRUE 1
 
@@ -23,7 +23,7 @@ typedef enum {
 
 void establishment(int *fd, int fl) {
     const char FLAG = 0x5c;
-    const char A = 0x01; //ja ta mudado par o UA
+    const char A = 0x01;
     char C = 0x00;
 
     switch (fl){
@@ -41,7 +41,7 @@ void establishment(int *fd, int fl) {
     const char BCC1 = A ^ C;
     
     state_t maqstate = START;
-    char buf[2]; // Tamanho do array buf ajustado para 2, se der erro mudar para 256
+    char buf[2];
 
     while (maqstate != STOP) {
         int res = read(*fd, buf, 1);
@@ -94,8 +94,8 @@ void establishment(int *fd, int fl) {
                 break;
         }
     }
-    printf("STOP\n");
-    return; // Termina a função
+    printf("--------------------------------------------------------\n");
+    return;
 }
 
 void data_transfer(int *fd, int fl) {
@@ -115,7 +115,7 @@ void data_transfer(int *fd, int fl) {
     char BCC2 = 0x00;
     const char DATA[5] = {0x01, 0x02, 0x03, 0x04, 0x05};
 
-    char buf[11]; // Tamanho do array buf ajustado para 2, se der erro mudar para 256
+    char buf[11];
 
     buf[0] = FLAG;
     buf[1] = A;
@@ -132,7 +132,7 @@ void data_transfer(int *fd, int fl) {
 
     write(*fd, buf, 11);
 
-    return; // Termina a função
+    return;
 }
 
 int main(int argc, char** argv)
@@ -206,12 +206,12 @@ int main(int argc, char** argv)
 
     fl=0;//conexão
     establishment(&fd, fl);
-
+    //S=0
     data_transfer(&fd, fl);
 
     fl=1;//RR=1
     establishment(&fd, fl);
-
+    //S=1
     data_transfer(&fd, fl);
 
     fl=2;//RR=0
