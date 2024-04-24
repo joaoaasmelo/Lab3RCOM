@@ -208,13 +208,15 @@ void data_transfer_sender(int *fd, int fl){
     }
     const char BCC1 = A ^ C;
 
+    char buf[5];
+
     buf[0] = FLAG;
     buf[1] = A;
     buf[2] = C;
     buf[3] = BCC1;
     buf[4] = FLAG;
     
-    res = write(fd,buf,5);
+    res = write(*fd,buf,5);
     printf("%d bytes written\n", res);
 
 }
