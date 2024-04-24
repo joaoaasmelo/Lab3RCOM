@@ -12,12 +12,12 @@
 #define TRUE 1
 
 typedef enum {
-    START,
-    FLAG_RCV,
-    A_RCV,
-    C_RCV,
-    BCC_OK,
-    DATA,
+    START, 
+    FLAG_RCV, 
+    A_RCV, C_RCV, 
+    BCC_OK, 
+    DATA, 
+    BCC2_OK, 
     STOP
 } state_t;
 
@@ -87,7 +87,7 @@ void establishment(int *fd) {
 
      
 
-void data_transfer(int *fd) {
+/*void data_transfer(int *fd) {
     const char FLAG = 0x5c;
     const char A = 0x01;
     const char C = 0x11;
@@ -181,6 +181,87 @@ void data_transfer(int *fd) {
     printf("STOP\n");
     return; // Termina a função
 
+}*/
+
+void data_transfer(int *fd) {
+    const char FLAG = 0x5c;
+    const char A = 0x01;
+    const char C = 0x11;
+    const char BCC1 = A ^ C;
+    char BCC2 = 0x00;
+    char data[1024];
+    char previous_value = 0;
+    int i = 0;
+
+    state_t maqstate = START;
+    char buf[1];
+
+    while (maqstate != STOP) {
+        int res = read(*fd, buf, 1);
+        if (res <= 0) continue;
+
+        switch (maqstate) {
+            case START:
+                if (buf[0] == FLAG) {
+                    maqstate = FLAG_RCV;
+                    printf("START -> FLAG_RCV\n");
+                }
+                break;
+            case FLAG_RCV:
+                if (buf[0] == A) {
+                    maqstate = A_RCV;
+                    printf("FLAG_RCV -> A_RCV\n");
+                    printf("FLAG = %x\n", buf[0]);
+                } else if (buf[0] != FLAG) {
+                    maqstate = START;
+                }
+                break;
+            case A_RCV:
+                if (buf[0] == C) {
+                    maqstate = C_RCV;
+                    printf("A_RCV -> C_RCV\n");
+                    printf("A = %x\n", buf[0]);
+                } else if (buf[0] != FLAG) {
+                    maqstate = START;
+                }
+                break;
+            case C_RCV:
+                if (buf[0] == BCC1) {
+                    maqstate = BCC_OK;
+                    printf("C_RCV -> BCC_OK\n");
+                    printf("C = %x\n", buf[0]);
+                } else if (buf[0] != FLAG) {
+                    maqstate = START;
+                }
+                break;
+            case BCC_OK:
+                if (buf[0] == FLAG) {
+                    maqstate = DATA;
+                    printf("BCC_OK -> DATA\n");
+                    printf("BCC1 = %x\n", buf[0]);
+                    i = 0;
+                } else {
+                    maqstate = START;
+                }
+                break;
+            case DATA:
+                if (buf[0] == FLAG) {
+                    if (BCC2 == previous_value) {
+                        maqstate = STOP;
+                    } else {
+                        maqstate = START;
+                    }
+                } else {
+                    data[i++] = buf[0];
+                    previous_value = BCC2;
+                    BCC2 ^= buf[0];
+                }
+                break;
+        }
+    }
+    printf("STOP\n");
+    data[i] = '\0';
+    printf("Received data: %s\n", data);
 }
 
 
