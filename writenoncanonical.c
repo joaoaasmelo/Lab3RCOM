@@ -113,24 +113,25 @@ void data_transfer(int *fd, int fl) {
     }
     unsigned char BCC1 = A ^ C;
     unsigned char BCC2 = 0x00;
-    unsigned char DATA[5] = {0x01, 0x02, 0x03, 0x04, 0x05};
+    unsigned char DATA[] = {0x01, 0x02, 0x03, 0x04, 0x05};
 
-    unsigned char buf[11];
+    char buf[6 + sizeof(DATA)];
 
     buf[0] = FLAG;
     buf[1] = A;
     buf[2] = C;
     buf[3] = BCC1;
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < sizeof(DATA); i++) {
         buf[4+i] = DATA[i];
         BCC2 ^= DATA[i];
     }
 
-    buf[9] = BCC2;
-    buf[10] = FLAG;
+    buf[4 + sizeof(DATA)] = BCC2;
+    buf[5 + sizeof(DATA)] = FLAG;
 
-    write(*fd, buf, 11);
+
+    write(*fd, buf, 6 + sizeof(DATA);
 
     return;
 }
