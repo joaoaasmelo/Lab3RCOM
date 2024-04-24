@@ -36,6 +36,9 @@ void establishment(int *fd, int fl) {
         case 2:
             C = 0x01;
             break;
+        case 3:
+            C = 0x0a;
+            break;
     }
 
     const char BCC1 = A ^ C;
@@ -131,13 +134,36 @@ void data_transfer(int *fd, int fl) {
     buf[5 + sizeof(DATA)] = FLAG;
 
 
-    write(*fd, buf, 6 + sizeof(DATA);
+    write(*fd, buf, 6 + sizeof(DATA));
 
     return;
 }
 void bye(int *fd, int fl) {
-    close(*fd);
-    exit(0);
+    char FLAG = 0x5c;
+    char A = 0x03;
+    char C = 0x00;
+
+    switch (fl){
+        case 0:
+            C = 0x08;
+            break;
+        case 3:
+            C = 0x0a;
+            break;
+        case 4:
+            C = 0x06;
+            break;
+    }
+    char BCC1 = A^C;
+
+    buf[0] = FLAG;
+    buf[1] = A;
+    buf[2] = C;
+    buf[3] = BCC1;
+    buf[4] = FLAG;
+
+    res = write(fd,buf,5);
+    printf("%d bytes written\n", res);
 }
 
 int main(int argc, char** argv)
@@ -198,20 +224,9 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-    char FLAG = 0x5c, A = 0x03, C = 0x08, BCC1 = A^C;
-
-    buf[0] = FLAG;
-    buf[1] = A;
-    buf[2] = C;
-    buf[3] = BCC1;
-    buf[4] = FLAG;
-
-    res = write(fd,buf,5);
-    printf("%d bytes written\n", res);
-
     fl=0;//SET
     hello_bye(&fd, fl);
-    
+
     establishment(&fd, fl);
     //S=0
     data_transfer(&fd, fl);
@@ -226,6 +241,8 @@ int main(int argc, char** argv)
 
     fl=3;//DISC
     hello_bye(&fd, fl);
+
+    establishment(&fd, fl);
 
     fl=4;//UA
     hello_bye(&fd, fl);
