@@ -21,7 +21,7 @@ typedef enum {
     STOP
 } state_t;
 
-void establishment(int *fd) {
+void establishment_receive(int *fd) {
     const char FLAG = 0x5c;
     const char A = 0x03;
     char C = 0x08;
@@ -86,7 +86,27 @@ void establishment(int *fd) {
     return; // Termina a função
 }
 
-void data_transfer(int *fd, int fl) {
+void establishment_sender(int *fd) {
+    const char FLAG = 0x5c;
+    const char A = 0x01;
+    char C = 0x06;
+    const char BCC1 = A ^ C;
+    
+    char buf[5];
+
+    buf[0] = FLAG;
+    buf[1] = A;
+    buf[2] = C;
+    buf[3] = BCC1;
+    buf[4] = FLAG;
+
+    int res = write(*fd, buf, 5);
+    printf("%d bytes written\n", res);
+    
+    return; // Termina a função
+}
+
+void data_transfer_receive(int *fd, int fl) {
     unsigned char FLAG = 0x5c;
     unsigned char A = 0x03;
     unsigned char C = 0x00;
@@ -173,12 +193,35 @@ void data_transfer(int *fd, int fl) {
     printf("--------------------------------\n");
 }
 
+void data_transfer_sender(int *fd, int fl){
 
+    const char FLAG = 0x5c;
+    const char A = 0x01;
+    char C = 0x00;
+    switch(fl){
+        case 0:
+            C = 0x11;
+            break;
+        case 1:
+            C = 0x01;
+            break;
+    }
+    const char BCC1 = A ^ C;
 
+    buf[0] = FLAG;
+    buf[1] = A;
+    buf[2] = C;
+    buf[3] = BCC1;
+    buf[4] = FLAG;
+    
+    res = write(fd,buf,5);
+    printf("%d bytes written\n", res);
+
+}
 
 int main(int argc, char** argv)
 {
-    int fd,c, res;
+    int fd, c, res;
     struct termios oldtio,newtio;
 
     if ( (argc < 2) ||
@@ -189,12 +232,10 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-
     /*
     Open serial port device for reading and writing and not as controlling tty
     because we don't want to get killed if linenoise sends CTRL-C.
     */
-
 
     fd = open(argv[1], O_RDWR | O_NOCTTY );
     if (fd < 0) { perror(argv[1]); exit(-1); }
@@ -229,50 +270,26 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
     
-    establishment(&fd);
+    establishment_receive(&fd);
 
-    char FLAG = 0x5c, A = 0x01 , C = 0x06, BCC1 = A^C;
-
-    char buf[5];
-
-    buf[0] = FLAG;
-    buf[1] = A;
-    buf[2] = C;
-    buf[3] = BCC1;
-    buf[4] = FLAG;
-
-    res = write(fd,buf,5);
-    printf("%d bytes written\n", res);
+    establishment_sender(&fd);
 
     sleep(1);
 
-    data_transfer(&fd, 0);
+    //flag = 0 --> S = 0
 
-    FLAG = 0x5c; A = 0x01 ; C = 0x11; BCC1 = A^C;
+    data_transfer_receive(&fd, 0);
 
-    buf[0] = FLAG;
-    buf[1] = A;
-    buf[2] = C;
-    buf[3] = BCC1;
-    buf[4] = FLAG;
+    data_transfer_sender(&fd, 0);
 
-    res = write(fd,buf,5);
-    printf("%d bytes written\n", res);
+    //flag = 1 --> S = 1
 
     sleep(1);
 
-    data_transfer(&fd, 1);
+    data_transfer_receive(&fd, 1);
 
-    FLAG = 0x5c; A = 0x01 ; C = 0x01; BCC1 = A^C;
+    data_transfer_sender(&fd, 1);
 
-    buf[0] = FLAG;
-    buf[1] = A;
-    buf[2] = C;
-    buf[3] = BCC1;
-    buf[4] = FLAG;
-    
-    res = write(fd,buf,5);
-    printf("%d bytes written\n", res);
     sleep(1);
 
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
