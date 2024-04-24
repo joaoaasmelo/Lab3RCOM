@@ -99,9 +99,9 @@ void establishment(int *fd, int fl) {
 }
 
 void data_transfer(int *fd, int fl) {
-    const char FLAG = 0x5c;
-    const char A = 0x03;
-    char C = 0x00;
+    unsigned char FLAG = 0x5c;
+    unsigned char A = 0x03;
+    unsigned char C = 0x00;
 
     switch (fl){
         case 0:
@@ -111,11 +111,11 @@ void data_transfer(int *fd, int fl) {
             C = 0xc0;
             break;
     }
-    const char BCC1 = A ^ C;
-    char BCC2 = 0x00;
-    const char DATA[5] = {0x01, 0x02, 0x03, 0x04, 0x05};
+    unsigned char BCC1 = A ^ C;
+    unsigned char BCC2 = 0x00;
+    unsigned char DATA[5] = {0x01, 0x02, 0x03, 0x04, 0x05};
 
-    char buf[11];
+    unsigned char buf[11];
 
     buf[0] = FLAG;
     buf[1] = A;
