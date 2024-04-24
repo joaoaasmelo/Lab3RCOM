@@ -371,6 +371,10 @@ int main(int argc, char** argv)
 
     establishment_sender(&fd);
 
+    printf("--------------------------------\n");
+    printf("------Establishment done!-------\n");
+    printf("--------------------------------\n");
+
     sleep(1);
 
     //flag = 0 --> S = 0
@@ -394,6 +398,10 @@ int main(int argc, char** argv)
     termination_sender(&fd);
 
     termination_receive(&fd, 1);
+
+    printf("--------------------------------\n");
+    printf("-------Termination done!--------\n");
+    printf("--------------------------------\n");
 
     sleep(1);
 
