@@ -143,6 +143,7 @@ void hello_bye(int *fd, int fl) {
     char A = 0x03;
     char C = 0x00;
     char buf[5];
+    int res;
 
     switch (fl){
         case 0:
