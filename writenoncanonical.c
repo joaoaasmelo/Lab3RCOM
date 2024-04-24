@@ -138,10 +138,11 @@ void data_transfer(int *fd, int fl) {
 
     return;
 }
-void bye(int *fd, int fl) {
+void hello_bye(int *fd, int fl) {
     char FLAG = 0x5c;
     char A = 0x03;
     char C = 0x00;
+    char buf[5];
 
     switch (fl){
         case 0:
