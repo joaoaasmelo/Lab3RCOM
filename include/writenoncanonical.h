@@ -1,5 +1,5 @@
-#ifndef READNONCANONICAL_H
-#define READNONCANONICAL_H
+#ifndef WRITENONCANONICAL_H
+#define WRITENONCANONICAL_H
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -19,13 +19,12 @@ typedef enum {
     FLAG_RCV, 
     A_RCV, C_RCV, 
     BCC_OK, 
-    DATA, 
-    BCC2_OK, 
     STOP
 } state_t;
 
+
 #define BUF_RCV_SIZE 2
-#define BUF_DATA_SIZE 1024
+#define BUF_DATA_SIZE 255
 #define BUF_SEND_SIZE 5
 #define SET_FRAME_SIZE 5
 #define SET_FLAG 0x5c
@@ -45,4 +44,4 @@ typedef enum {
 #define C_I1 0xc0
 #define C_DISC 0x0a
 
-#endif /* READNONCANONICAL_H */
+#endif /* WRITENONCANONICAL_H */

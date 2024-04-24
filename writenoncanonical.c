@@ -1,94 +1,77 @@
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <termios.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
+#include "include/readnoncanonical.h"
 
-#define BAUDRATE B9600
-#define MODEMDEVICE "/dev/ttyS1"
-#define _POSIX_SOURCE 1
-#define FALSE 0
-#define TRUE 1
+void establishment_sender(int *fd) {
+    const char FLAG = SET_FLAG;
+    const char A = A_TX;
+    char C = C_SET;
+    const char BCC1 = A ^ C;
+    
+    char buf[SET_FRAME_SIZE];
 
-typedef enum {
-    START,
-    FLAG_RCV,
-    A_RCV,
-    C_RCV,
-    BCC_OK,
-    STOP
-} state_t;
+    buf[0] = FLAG;
+    buf[1] = A;
+    buf[2] = C;
+    buf[3] = BCC1;
+    buf[4] = FLAG;
 
-void establishment(int *fd, int fl) {
-    const char FLAG = 0x5c;
-    const char A = 0x01;
-    char C = 0x00;
+    int res = write(*fd, buf, 5);
+    printf("%d bytes written (SET)\n\n", res);
+    
+    return; // Termina a função
+}
 
-    switch (fl){
-        case 0:
-            C = 0x06;
-            break;
-        case 1:
-            C = 0x11;
-            break;
-        case 2:
-            C = 0x01;
-            break;
-        case 3:
-            C = 0x0a;
-            break;
-    }
-
+void establishment_receive(int *fd) {
+    const char FLAG = SET_FLAG;
+    const char A = A_RX;
+    char C = C_UA;
     const char BCC1 = A ^ C;
     
     state_t maqstate = START;
-    char buf[2];
+    char buf[BUF_RCV_SIZE]; // Tamanho do array buf ajustado para 2, se der erro mudar para 256
 
     while (maqstate != STOP) {
         int res = read(*fd, buf, 1);
         buf[res] = '\0';
 
         switch (maqstate) {
-            case START:
-                if (buf[0] == FLAG) {
+               case START:
+                if (buf[READ_IDX] == FLAG) {
                     maqstate = FLAG_RCV;
                     printf("FLAG = %x\n", buf[0]);
                 }
                 break;
             case FLAG_RCV:
-                if (buf[0] == A) {
+                if (buf[READ_IDX] == A) {
                     maqstate = A_RCV;
                     printf("A = %x\n", buf[0]);
-                } else if (buf[0] == FLAG) {
+                } else if (buf[READ_IDX] == FLAG) {
                     maqstate = FLAG_RCV;
                 } else {
                     maqstate = START;
                 }
                 break;
             case A_RCV:
-                if (buf[0] == C) {
+                if (buf[READ_IDX] == C) {
                     maqstate = C_RCV;
                     printf("C = %x\n", buf[0]);
-                } else if (buf[0] == FLAG) {
+                } else if (buf[READ_IDX] == FLAG) {
                     maqstate = FLAG_RCV;
                 } else {
                     maqstate = START;
                 }
                 break;
             case C_RCV:
-                if (buf[0] == BCC1) {
+                if (buf[READ_IDX] == BCC1) {
                     maqstate = BCC_OK;
                     printf("BCC1 = %x\n", buf[0]);
-                } else if (buf[0] == FLAG) {
+                } else if (buf[READ_IDX] == FLAG) {
                     maqstate = FLAG_RCV;
                 } else {
                     maqstate = START;
                 }
                 break;
             case BCC_OK:
-                if (buf[0] == FLAG) {
+                if (buf[READ_IDX] == FLAG) {
                     maqstate = STOP;
                     printf("FLAG = %x\n", buf[0]);
                 } else {
@@ -97,25 +80,27 @@ void establishment(int *fd, int fl) {
                 break;
         }
     }
-    printf("--------------------------------------------------------\n");
-    return;
+    
+    printf("--------------UA--------------\n\n");
+    return; // Termina a função
 }
 
-void data_transfer(int *fd, int fl) {
-    unsigned char FLAG = 0x5c;
-    unsigned char A = 0x03;
-    unsigned char C = 0x00;
+void data_transfer_sender(int *fd, int Ns){
 
-    switch (fl){
+    const char FLAG = SET_FLAG;
+    const char A = A_TX;
+    char C = C_DEFAULT;
+    switch(Ns){
         case 0:
-            C = 0x80;
+            C = C_I0;
             break;
         case 1:
-            C = 0xc0;
+            C = C_I1;
             break;
     }
-    unsigned char BCC1 = A ^ C;
-    unsigned char BCC2 = 0x00;
+    const char BCC1 = A ^ C;
+    char BCC2 = BCC_DEFAULT;
+
     unsigned char DATA[] = {0x01, 0x02, 0x03, 0x04, 0x05};
 
     char buf[6 + sizeof(DATA)];
@@ -133,30 +118,106 @@ void data_transfer(int *fd, int fl) {
     buf[4 + sizeof(DATA)] = BCC2;
     buf[5 + sizeof(DATA)] = FLAG;
 
+    int res = write(*fd, buf, 6 + sizeof(DATA));
+    if(Ns == 0) printf("%d bytes written (I0)\n\n", res);
+    else printf("%d bytes written (I1)\n\n", res);
+    return; // Termina a função
 
-    write(*fd, buf, 6 + sizeof(DATA));
-
-    return;
 }
-void hello_bye(int *fd, int fl) {
-    char FLAG = 0x5c;
-    char A = 0x03;
-    char C = 0x00;
-    char buf[5];
-    int res;
 
-    switch (fl){
+void data_transfer_receive(int *fd, int Nr) {
+
+    unsigned char FLAG = SET_FLAG;
+    unsigned char A = A_RX;
+    unsigned char C = C_DEFAULT;
+    switch(Nr){
         case 0:
-            C = 0x08;
+            C = C_RR0;
             break;
-        case 3:
-            C = 0x0a;
-            break;
-        case 4:
-            C = 0x06;
+        case 1:
+            C = C_RR1;
             break;
     }
-    char BCC1 = A^C;
+
+    const char BCC1 = A ^ C;
+    char BCC2 = BCC_DEFAULT;
+
+    state_t maqstate = START;
+    char buf[BUF_RCV_SIZE]; // Tamanho do array buf ajustado para 2, se der erro mudar para 256
+
+    while (maqstate != STOP) {
+        int res = read(*fd, buf, 1);
+        buf[res] = '\0';
+
+        switch (maqstate) {
+               case START:
+                if (buf[READ_IDX] == FLAG) {
+                    maqstate = FLAG_RCV;
+                    printf("FLAG = %x\n", buf[0]);
+                }
+                break;
+            case FLAG_RCV:
+                if (buf[READ_IDX] == A) {
+                    maqstate = A_RCV;
+                    printf("A = %x\n", buf[0]);
+                } else if (buf[READ_IDX] == FLAG) {
+                    maqstate = FLAG_RCV;
+                } else {
+                    maqstate = START;
+                }
+                break;
+            case A_RCV:
+                if (buf[READ_IDX] == C) {
+                    maqstate = C_RCV;
+                    printf("C = %x\n", buf[0]);
+                } else if (buf[READ_IDX] == FLAG) {
+                    maqstate = FLAG_RCV;
+                } else {
+                    maqstate = START;
+                }
+                break;
+            case C_RCV:
+                if (buf[READ_IDX] == BCC1) {
+                    maqstate = BCC_OK;
+                    printf("BCC1 = %x\n", buf[0]);
+                } else if (buf[READ_IDX] == FLAG) {
+                    maqstate = FLAG_RCV;
+                } else {
+                    maqstate = START;
+                }
+                break;
+            case BCC_OK:
+                if (buf[READ_IDX] == FLAG) {
+                    maqstate = STOP;
+                    printf("FLAG = %x\n", buf[0]);
+                } else {
+                    maqstate = START;
+                }
+                break;
+        }
+    }
+    
+    if(Nr == 0) printf("--------------RR0--------------\n\n");
+    else printf("--------------RR1--------------\n\n");
+
+    return; // Termina a função
+}
+
+void termination_sender(int *fd, int fl) {
+    const char FLAG = SET_FLAG;
+    const char A = A_TX;
+    char C = C_DEFAULT;
+    switch(fl){
+        case 0:
+            C = C_DISC;
+            break;
+        case 1:
+            C = C_UA;
+            break;
+    }
+    const char BCC1 = A ^ C;
+    
+    char buf[SET_FRAME_SIZE];
 
     buf[0] = FLAG;
     buf[1] = A;
@@ -164,8 +225,86 @@ void hello_bye(int *fd, int fl) {
     buf[3] = BCC1;
     buf[4] = FLAG;
 
-    res = write(*fd,buf,5);
-    printf("%d bytes written\n", res);
+    int res = write(*fd, buf, 5);
+    if(fl == 0) printf("%d bytes written (DISC)\n\n", res);
+    else printf("%d bytes written (UA)\n\n", res);
+    
+    return; // Termina a função
+}
+
+void termination_receive(int *fd, int fl) {
+    unsigned char FLAG = SET_FLAG;
+    unsigned char A = A_RX;
+    unsigned C;
+    switch(fl){
+        case 0:
+            C = C_DISC;
+            break;
+        case 1:
+            C = C_UA;
+            break;
+    }
+    const char BCC1 = A ^ C;
+    
+    state_t maqstate = START;
+    char buf[BUF_RCV_SIZE]; // Tamanho do array buf ajustado para 2, se der erro mudar para 256
+
+    while (maqstate != STOP) {
+        int res = read(*fd, buf, 1);
+        
+
+        switch (maqstate) {
+               case START:
+                if (buf[READ_IDX] == FLAG) {
+                    maqstate = FLAG_RCV;
+                    printf("FLAG = %x\n", buf[0]);
+                }
+                break;
+            case FLAG_RCV:
+                if (buf[READ_IDX] == A) {
+                    maqstate = A_RCV;
+                    printf("A = %x\n", buf[0]);
+                } else if (buf[READ_IDX] == FLAG) {
+                    maqstate = FLAG_RCV;
+                } else {
+                    maqstate = START;
+                }
+                break;
+            case A_RCV:
+                if (buf[READ_IDX] == C) {
+                    maqstate = C_RCV;
+                    printf("C = %x\n", buf[0]);
+                } else if (buf[READ_IDX] == FLAG) {
+                    maqstate = FLAG_RCV;
+                } else {
+                    maqstate = START;
+                }
+                break;
+            case C_RCV:
+                if (buf[READ_IDX] == BCC1) {
+                    maqstate = BCC_OK;
+                    printf("BCC1 = %x\n", buf[0]);
+                } else if (buf[READ_IDX] == FLAG) {
+                    maqstate = FLAG_RCV;
+                } else {
+                    maqstate = START;
+                }
+                break;
+            case BCC_OK:
+                if (buf[READ_IDX] == FLAG) {
+                    maqstate = STOP;
+                    printf("FLAG = %x\n", buf[0]);
+                } else {
+                    maqstate = START;
+                }
+                break;
+        }
+    }
+    
+    if(fl == 0) printf("--------------DISC------------\n\n");
+    else printf("--------------UA--------------\n\n");
+    
+    return; // Termina a função
 }
 
 int main(int argc, char** argv)
@@ -226,30 +365,36 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-    fl=0;//SET
-    hello_bye(&fd, fl);
+    establishment_sender(&fd);
 
-    establishment(&fd, fl);
-    //S=0
-    data_transfer(&fd, fl);
+    establishment_receive(&fd);
 
-    fl=1;//RR=1
-    establishment(&fd, fl);
-    //S=1
-    data_transfer(&fd, fl);
+    printf("--------------------------------\n");
+    printf("------Establishment done!-------\n");
+    printf("--------------------------------\n");
 
-    fl=2;//RR=0
-    establishment(&fd, fl);
+    int Ns = 0;
+    data_transfer_sender(&fd, Ns);
 
-    fl=3;//DISC
-    hello_bye(&fd, fl);
+    int Nr = 1;
+    data_transfer_receive(&fd, Nr);
 
-    establishment(&fd, fl);
+    /*Ns = 1;
+    data_transfer_sender(&fd, Ns);
 
-    fl=4;//UA
-    hello_bye(&fd, fl);
+    Nr = 0;
+    data_transfer_receive(&fd, Nr);*/
 
-    sleep(1);
+    //DISC == 0 e UA == 1
+    termination_sender(&fd, 0);
+
+    termination_receive(&fd, 0);
+
+    termination_sender(&fd, 1);
+
+    printf("--------------------------------\n");
+    printf("-------Termination done!--------\n");
+    printf("--------------------------------\n");
 
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
         perror("tcsetattr");
