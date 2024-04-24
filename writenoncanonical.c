@@ -98,10 +98,19 @@ void establishment(int *fd, int fl) {
     return; // Termina a função
 }
 
-void data_transfer(int *fd) {
+void data_transfer(int *fd, int fl) {
     const char FLAG = 0x5c;
     const char A = 0x03;
-    const char C = 0x08;
+    char C = 0x00;
+
+    switch (fl){
+        case 0:
+            C = 0x80;
+            break;
+        case 1:
+            C = 0xc0;
+            break;
+    }
     const char BCC1 = A ^ C;
     char BCC2 = 0x00;
     const char DATA[5] = {0x01, 0x02, 0x03, 0x04, 0x05};
@@ -198,10 +207,12 @@ int main(int argc, char** argv)
     fl=0;//conexão
     establishment(&fd, fl);
 
-    data_transfer(&fd);
+    data_transfer(&fd, fl);
 
-    fl=1;//RR=1 
+    fl=1;//RR=1
     establishment(&fd, fl);
+
+    data_transfer(&fd, fl);
 
     fl=2;//RR=0
     establishment(&fd, fl);
