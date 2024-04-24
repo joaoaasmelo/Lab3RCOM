@@ -24,7 +24,7 @@ typedef enum {
 void establishment(int *fd, int fl) {
     const char FLAG = 0x5c;
     const char A = 0x01; //ja ta mudado par o UA
-    const char C = 0x00;
+    char C = 0x00;
 
     switch (fl){
         case 0:
