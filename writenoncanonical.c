@@ -134,6 +134,10 @@ void data_transfer(int *fd, int fl) {
 
     return;
 }
+void bye(int *fd, int fl) {
+    close(*fd);
+    exit(0);
+}
 
 int main(int argc, char** argv)
 {
@@ -204,7 +208,9 @@ int main(int argc, char** argv)
     res = write(fd,buf,5);
     printf("%d bytes written\n", res);
 
-    fl=0;//conexão
+    fl=0;//SET
+    hello_bye(&fd, fl);
+    
     establishment(&fd, fl);
     //S=0
     data_transfer(&fd, fl);
@@ -216,6 +222,12 @@ int main(int argc, char** argv)
 
     fl=2;//RR=0
     establishment(&fd, fl);
+
+    fl=3;//DISC
+    hello_bye(&fd, fl);
+
+    fl=4;//UA
+    hello_bye(&fd, fl);
 
     sleep(1);
 
