@@ -271,6 +271,8 @@ void data_transfer(int *fd) {
 }
 
 
+
+
 int main(int argc, char** argv)
 {
     int fd,c, res;
@@ -339,14 +341,29 @@ int main(int argc, char** argv)
     res = write(fd,buf,5);
     printf("%d bytes written\n", res);
 
+    sleep(1);
+
+    data_transfer(&fd);
+
+    char FLAG = 0x5c, A = 0x01 , C = 0x01, BCC1 = A^C;
+
+    char buf[5];
+
+    buf[0] = FLAG;
+    buf[1] = A;
+    buf[2] = C;
+    buf[3] = BCC1;
+    buf[4] = FLAG;
+
+    res = write(fd,buf,5);
+    printf("%d bytes written\n", res);
+
    sleep(1);
 
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
-        perror("tcsetattr");
-        exit(-1);
-    }
-
-    data_transfer(&fd);
+            perror("tcsetattr");
+            exit(-1);
+        }
 
     close(fd);
     return 0;
