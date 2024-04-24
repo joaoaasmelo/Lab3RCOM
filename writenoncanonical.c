@@ -121,7 +121,7 @@ void data_transfer(int *fd) {
     buf[9] = BCC2;
     buf[10] = FLAG;
 
-    write(*fd, buf, 10);
+    write(*fd, buf, 11);
 
     return; // Termina a função
 }
