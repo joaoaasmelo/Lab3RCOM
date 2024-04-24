@@ -103,7 +103,7 @@ void data_transfer(int *fd) {
     const char A = 0x03;
     const char C = 0x08;
     const char BCC1 = A ^ C;
-    const char BCC2 = 0x00;
+    char BCC2 = 0x00;
     const char DATA[5] = {0x01, 0x02, 0x03, 0x04, 0x05};
 
     char buf[11]; // Tamanho do array buf ajustado para 2, se der erro mudar para 256
