@@ -164,7 +164,7 @@ void hello_bye(int *fd, int fl) {
     buf[3] = BCC1;
     buf[4] = FLAG;
 
-    res = write(fd,buf,5);
+    res = write(*fd,buf,5);
     printf("%d bytes written\n", res);
 }
 
