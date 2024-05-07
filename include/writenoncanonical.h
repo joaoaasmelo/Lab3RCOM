@@ -33,6 +33,9 @@ typedef enum {
 
 #define READ_IDX 0
 
+#define ESCAPE_CHAR 0x7d
+#define ESCAPE_XOR 0x20
+
 //Control packet
 #define C_DEFAULT 0x00
 #define BCC_DEFAULT 0x00

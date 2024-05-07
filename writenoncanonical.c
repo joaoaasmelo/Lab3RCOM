@@ -110,17 +110,24 @@ void data_transfer_sender(int *fd, int Ns){
     buf[2] = C;
     buf[3] = BCC1;
 
-    for (int i = 0; i < sizeof(DATA); i++) {
-        buf[4+i] = DATA[i];
-        BCC2 ^= DATA[i];
-    }
+    int esc_count = 0;//adicionar +n ao tamanho do array casi haja n escapes
 
-    buf[4 + sizeof(DATA)] = BCC2;
-    buf[5 + sizeof(DATA)] = FLAG;
+    for (int i = 0; i < sizeof(DATA); i++) {
+        if(DATA[i] == FLAG || DATA[i] == ESCAPE_CHAR) { //0x5c ou 0x5d -> 0x5d 0x7c
+            buf[4+i] = ESCAPE_CHAR;
+            buf[5+i] = DATA[i] ^ ESCAPE_XOR;
+            esc_count++;
+        } else {
+            buf[4+i] = DATA[i];
+        }
+    }
+    
+    buf[4 + esc_count + sizeof(DATA)] = BCC2;
+    buf[5 + esc_count + sizeof(DATA)] = FLAG;
 
     int res = write(*fd, buf, 6 + sizeof(DATA));
     if(Ns == 0) printf("%d bytes written (I0)\n\n", res);
-    else printf("%d bytes written (I1)\n\n", res);
+    else        printf("%d bytes written (I1)\n\n", res);
     return; // Termina a função
 
 }

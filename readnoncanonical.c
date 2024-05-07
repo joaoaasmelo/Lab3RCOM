@@ -310,6 +310,123 @@ void termination_sender(int *fd, int fl) {
     return; // Termina a função
 }
 
+void receiver(int *fd) {
+    unsigned char FLAG = SET_FLAG;
+    unsigned char A = A_DEFAULT;
+    unsigned char C = C_DEFAULT;
+    unsigned char BCC1 = 0;
+    unsigned char BCC2 = 0;  // Inicialização do BCC2
+    unsigned char data[BUF_DATA_SIZE];
+    int i = 0;
+
+    state_t maqstate = START;
+    unsigned char buf[BUF_RCV_SIZE];
+    
+    while (maqstate != STOP) {
+        int res = read(*fd, buf, 1);
+        if (res <= 0) continue;
+       
+        switch (maqstate) {
+            case START:
+                if (buf[READ_IDX] == SET_FLAG) {
+                    maqstate = FLAG_RCV;
+                    printf("FLAG = %x\n", buf[READ_IDX]);
+                }
+                break;
+
+            case FLAG_RCV:
+                if (buf[READ_IDX] == A_TX || buf[READ_IDX] == A_RX) {
+                    A = buf[READ_IDX];
+                    maqstate = A_RCV;
+                    printf("A = %x\n", buf[READ_IDX]);
+                } else if (buf[READ_IDX] == FLAG) {
+                    maqstate = FLAG_RCV;
+                } else {
+                    maqstate = START;
+                }
+                break;
+
+            case A_RCV:
+                if (buf[READ_IDX] == C_UA || buf[READ_IDX] == C_SET || buf[READ_IDX] == C_DISC) {
+                    C = buf[READ_IDX];
+                    BCC1 = A ^ C;
+                    maqstate = C_RCV;
+                    printf("C = %x\n", buf[READ_IDX]);
+                } else if (buf[READ_IDX] == I0 || buf[READ_IDX] == I1) {
+                    C = buf[READ_IDX];
+                    BCC1 = A ^ C;
+                    maqstate = C_INF;
+                    printf("C = %x\n", buf[READ_IDX]);
+                } else if(buf[READ_IDX] == C_REJ0 || buf[READ_IDX] == C_REJ1) {
+                    maqstate = REJ;
+                    printf("Negative acknowledgement (REJ)\n");
+                } else if (buf[READ_IDX] == FLAG) {
+                    maqstate = FLAG_RCV; 
+                }else {
+                    maqstate = START;
+                }
+                break;
+
+            case C_RCV:
+                if (buf[READ_IDX] == BCC1) {
+                    maqstate = BCC_OK;
+                    printf("BCC1 = %x\n", buf[READ_IDX]);
+                } else if (buf[READ_IDX] == FLAG) {
+                    maqstate = FLAG_RCV;
+                } else {
+                    maqstate = START;
+                }
+                break;
+            
+            case BCC_OK:
+                if(C == C_I0 || C == C_I1) {
+                    maqstate = DATA;
+                    data[i] = buf[READ_IDX];
+                    BCC2 ^= data[i];
+                    printf("DATA %d = %x\n", i, data[i]);
+                    i++;
+                } else if(C == C_DISC || C == C_UA || C == C_SET) {
+                    maqstate = STOP;
+                    printf("FLAG = %x\n", buf[READ_IDX]);
+                } else {
+                    maqstate = START;
+                }
+                break;
+            case DATA:
+                if (buf[READ_IDX] == FLAG) {
+                    if (BCC2 == data[i]) {
+                        maqstate = STOP;
+                        printf("BCC2 = %x\n", BCC2);
+                        printf("FLAG = %x\n", buf[READ_IDX]);
+                    } else {
+                        maqstate = START;
+                    }
+                } else if (buf[READ_IDX] == ESCAPE_CHAR) {
+                    maqstate = ESCAPE;
+                } else {
+                    BCC2 ^= data[i];
+                    data[i+1] = buf[READ_IDX];
+                    printf("DATA %d = %x\n", i+1, data[i]);
+                    i++;
+                }
+                break;
+            case ESCAPE:
+                data[i] = buf[READ_IDX] ^ ESCAPE_XOR;
+                BCC2 ^= data[i];
+                printf("ESCAPED DATA %d = %x\n", i, data[i]);
+                i++;
+                maqstate = DATA;
+                break;
+            case REJ:
+                break;      
+        }
+
+        printf("--------------I--------------\n\n");
+        return;
+
+    }
+}
+
 int main(int argc, char** argv)
 {
     int fd, c, res;
