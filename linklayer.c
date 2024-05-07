@@ -1,26 +1,20 @@
 // Link layer protocol implementation
 
-#include "link_layer.h"
+#include "include/linklayer.h"
 
 // MISC
 #define _POSIX_SOURCE 1 // POSIX compliant source
 int alarmFlag = FALSE, alarmCounter = 0, timeout = 0, retrans_data_counter = 0, ns = 0;
 int check = TRUE, status_llwrite = 0, status_llread = 0, status_llclose = 0, fd;
 int valid = TRUE, nr = 1;
-LinkLayer connection;
+linkLayer connection;
 struct termios oldtio, newtio;
 LinkLayerState state = START; // Initial state
-
-
-
-////////////////////////////////////////////////
-// LLOPEN
-////////////////////////////////////////////////
 
 void stateMachineCheck(LinkLayerState* status, unsigned char byte, int type)
 {
     unsigned char save[2];
-    if(type == 0)
+    if(type == TRANSMITTER)
     {
         switch (*status)
         {
@@ -48,11 +42,11 @@ void stateMachineCheck(LinkLayerState* status, unsigned char byte, int type)
             break;
 
         case A_RCV:
-            if((byte == 0x07) || (byte == 0x03) || (byte == C_DISC) || (byte == 0x85) || (byte == 0x05)) { 
+            if((byte == C_UA) || (byte == C_SET) || (byte == C_DISC) || (byte == C_RR0) || (byte == C_RR1)) { 
                 
                 save[1] = byte;
                 *status = C_RCV;
-            }else if( (byte == 0x01) || (byte == 0x81) ){
+            }else if( (byte == C_REJ0) || (byte == C_REJ1) ){
                 printf("Negative acknowledgement (REJ)\n");
                 save[1] = byte;
                 *status = REJ;
@@ -60,7 +54,7 @@ void stateMachineCheck(LinkLayerState* status, unsigned char byte, int type)
             else if(byte == FLAG) {
                 *status = FLAG_RCV;
             }
-            else if((byte == IFCTRL_ON) || (byte == IFCTRL_OFF)) {
+            else if((byte == C_I0) || (byte == C_I1)) {
                 save[1] = byte;
                 *status = C_INF;
             }
@@ -100,7 +94,7 @@ void stateMachineCheck(LinkLayerState* status, unsigned char byte, int type)
         }
 
     }
-    else if(type == 1)
+    else if(type == RECEIVER)
     {
         switch (*status)
         {
@@ -130,7 +124,7 @@ void stateMachineCheck(LinkLayerState* status, unsigned char byte, int type)
             if(byte == FLAG) {
                 *status = FLAG_RCV;
             }
-            else if((byte == IFCTRL_ON) || (byte == IFCTRL_OFF)) {
+            else if((byte == C_I0) || (byte == C_I1)) {
                 save[1] = byte;
                 *status = C_INF;
             }
@@ -178,7 +172,7 @@ int sendSet()
     buf[3] = buf[1] ^ buf[2];
     (void)signal(SIGALRM, alarmHandler);
 
-    while (state != STOP && alarmCounter < (connection.nRetransmissions + 1))
+    while (state != STOP && alarmCounter < (connection.numTries + 1))
     {
         if (!alarmFlag)
         {
@@ -186,7 +180,7 @@ int sendSet()
 
             state = START;
             write(fd, buf, 5);
-            alarm(connection.timeout); 
+            alarm(connection.timeOut); 
             alarmFlag = TRUE;
         }
 
@@ -243,8 +237,7 @@ int resetAlarm() {
 
 }
 
-
-int llopen(LinkLayer connectionParameters)
+int llopen(linkLayer connectionParameters)
 {
     connection = connectionParameters;
     fd = open(connection.serialPort, O_RDWR | O_NOCTTY);
@@ -265,7 +258,7 @@ int llopen(LinkLayer connectionParameters)
     // Clear struct for new port settings
     memset(&newtio, 0, sizeof(newtio));
 
-    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+    newtio.c_cflag = connection.baudRate | CS8 | CLOCAL | CREAD;
     newtio.c_iflag = IGNPAR;
     newtio.c_oflag = 0;
 
@@ -292,38 +285,33 @@ int llopen(LinkLayer connectionParameters)
     }
 
     unsigned char byte; 
-    timeout = connection.timeout;
-    retrans_data_counter = connection.nRetransmissions;
+    timeout = connection.timeOut;
+    retrans_data_counter = connection.numTries;
     switch(connection.role) { 
-        case LlTx:{
+        case TRANSMITTER:{
             sendSet();
             break;
         }
-        case LlRx:{
+        case RECEIVER:{
             sendUAreadSet();
             break;
         }
         default: 
-            return -1; 
+            return NOT_DEFINED; 
             break; 
     }  
-return 1;
+
+    return 1;
 }
 
-
-
-
-////////////////////////////////////////////////
-// LLWRITE
-////////////////////////////////////////////////
-int llwrite(int fd, const unsigned char *buf, int bufSize)
+int llwrite(unsigned char *buf, int bufSize)
 {
    unsigned char trama_info[2*MAX_PAYLOAD_SIZE];
 
-    trama_info[0] = FLAG;
-    trama_info[1] = A_SET;
-    trama_info[2] = (ns == 0) ? 0x00 : 0x40;
-    trama_info[3] = trama_info[1] ^ trama_info[2]; 
+    trama_info[0] = FLAG;                               //F
+    trama_info[1] = A_SET;                              //A
+    trama_info[2] = (ns == 0) ? C_I0 : C_I1;            //C
+    trama_info[3] = trama_info[1] ^ trama_info[2];      //BCC1
 
     int trama_info_size = 0; 
     int bcc_2 = 0; 
@@ -376,7 +364,7 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
     unsigned char buf_aux[BUF_SIZE+1] = {0};
 
     (void)signal(SIGALRM,alarmHandler);    
-    while(status_llwrite != STOP && alarmCounter < (connection.nRetransmissions + 1)) 
+    while(status_llwrite != STOP && alarmCounter < (connection.numTries + 1)) 
     {
         //printf("The value of the alarmFlag %d\n", alarmFlag);
         //printf("status_llwrite == REJ%d\n",status_llwrite == REJ);
@@ -386,7 +374,7 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
             status_llwrite = START; 
             fprintf(stderr,"Sent Packet: %d\n",ns);
             int byte_written = write(fd,trama_info,trama_info_size);
-            alarm(connection.timeout);
+            alarm(connection.timeOut);
             alarmFlag = TRUE;
         }
         int k = 0; 
@@ -418,20 +406,16 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
     }
     status_llwrite = START;
     alarmFlag = FALSE;
-    if(alarmCounter >= (connection.nRetransmissions + 1))
+    if(alarmCounter >= (connection.numTries + 1))
     {
         alarmCounter = 0; 
-        llclose(0);
+        llclose(connectionParameters, 0);
         exit(1);
     }
 
     return trama_info_size; 
 
 }
-
-////////////////////////////////////////////////
-// LLREAD
-////////////////////////////////////////////////
 
 int writeRepPacket() {
     unsigned char out[6];
@@ -574,14 +558,14 @@ sendDiscCommand()
     buf[3] = buf[1] ^ buf[2];
     buf[4] = FLAG;
     (void)signal(SIGALRM,alarmHandler);
-    while(status_llclose != STOP && alarmCounter < (connection.nRetransmissions + 1))
+    while(status_llclose != STOP && alarmCounter < (connection.numTries + 1))
     {
         if(!alarmFlag)
         {
             printf("DISC sended to close connection.\n");
             status_llclose = START; 
             write(fd,buf,5);
-            alarm(connection.timeout);
+            alarm(connection.timeOut);
             alarmFlag = TRUE; 
         }
         if(read(fd,buf,1) > 0 )
@@ -597,15 +581,13 @@ sendDiscCommand()
     return alarmCounter;
 }
 
-////////////////////////////////////////////////
-// LLCLOSE
-////////////////////////////////////////////////
-int llclose(int showStatistics) {
+int llclose(linkLayer connectionParameters,int showStatistics) {
     alarmFlag = FALSE;
     alarmCounter = 0;
+    connection = connectionParameters;
 
     switch (connection.role) {
-        case LlTx:
+        case TRANSMITTER:
             if (sendDiscCommand() == 3) {
                 return -1; // Error sending DISC command.
             }
@@ -624,8 +606,7 @@ int llclose(int showStatistics) {
             printf("######################################\n");
             break;
 
-        case LlRx:
-        if(1 == 2){}
+        case RECEIVER:
             // Receive DISC command.
             unsigned char buf2[BUF_SIZE + 1];
             while (1) {

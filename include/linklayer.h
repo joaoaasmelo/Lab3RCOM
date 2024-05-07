@@ -1,61 +1,23 @@
-// Link layer header.
-// NOTE: This file must not be changed.
+#ifndef LINKLAYER
+#define LINKLAYER
 
-#ifndef _LINK_LAYER_H_
-#define _LINK_LAYER_H_
-
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <termios.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 
-#define BAUDRATE B38400
-#define _POSIX_SOURCE 1 // POSIX compliant source
-
-#define BUF_SIZE 256
-#define FALSE 0
-#define TRUE 1
-
-//Framing constants
-#define FRAME_SIZE 5
-#define A_SET 0x03
-#define A_UA 0x01
-#define FLAG 0x7E
-#define ESC 0x7D
-#define ESCE 0x5E
-#define ESCD 0x5D
-#define TR 0x03
-#define REC 0x01
-#define IFCTRL_ON 0x40
-#define IFCTRL_OFF 0x00
-
-//Control packet
-#define C_START 2
-#define C_END 3
-#define C_FILE_SIZE 0
-#define C_FILE_NAME 1
-#define C_SET 0x03
-#define C_UA 0x07
-#define C_RR0 0x05
-#define C_RR1 0x85
-#define C_REJ0 0x01
-#define C_REJ1 0x81
-#define C_DISC 0x0B
-
-//Data Packet
-#define DATA_PACKET 0x01
-
-
-typedef enum
-{
-    LlTx,
-    LlRx,
-} LinkLayerRole;
+typedef struct linkLayer{
+    char serialPort[50];
+    int role; //defines the role of the program: 0==Transmitter, 1=Receiver
+    int baudRate;
+    int numTries;
+    int timeOut;
+} linkLayer;
 
 typedef enum
 {
@@ -69,20 +31,50 @@ typedef enum
     REJ
 } LinkLayerState;
 
-typedef struct
-{
-    char serialPort[50];
-    LinkLayerRole role;
-    int baudRate;
-    int nRetransmissions;
-    int timeout;
-} LinkLayer;
+//ROLE
+#define NOT_DEFINED -1
+#define TRANSMITTER 0
+#define RECEIVER 1
 
-// SIZE of maximum acceptable payload.
-// Maximum number of bytes that application layer should send to link layer
+
+//SIZE of maximum acceptable payload; maximum number of bytes that application layer should send to link layer
 #define MAX_PAYLOAD_SIZE 1000
 
-// MISC
+//CONNECTION deafault values
+#define BAUDRATE_DEFAULT B38400
+#define MAX_RETRANSMISSIONS_DEFAULT 3
+#define TIMEOUT_DEFAULT 4
+#define _POSIX_SOURCE 1 /* POSIX compliant source */
+
+//Framing constants
+#define FRAME_SIZE 5
+#define A_SET 0x03
+#define A_UA 0x01
+#define FLAG 0x5c
+#define ESC 0x5d
+#define ESCE 0x7c
+#define ESCD 0x7d
+#define TR 0x03
+#define REC 0x01
+#define C_I1 0x80
+#define C_I0 0xc0
+
+//Control packet
+#define C_FILE_SIZE 0
+#define C_FILE_NAME 1
+#define C_SET 0x07
+#define C_UA 0x06
+#define C_RR0 0x01
+#define C_RR1 0x11
+#define C_REJ0 0x05
+#define C_REJ1 0x15
+#define C_DISC 0x0a
+
+//Data Packet
+#define DATA_PACKET 0x01
+
+//MISC
+#define BUF_SIZE 256
 #define FALSE 0
 #define TRUE 1
 
@@ -98,7 +90,7 @@ void stateMachineCheck(LinkLayerState* status, unsigned char byte, int type);
  *
  * @return The file descriptor of the opened serial port, or -1 in case of error.
  */
-int llopen(LinkLayer connectionParameters);
+int llopen(linkLayer connectionParameters);
 
 /**
  * Handle the alarm signal.
@@ -121,8 +113,7 @@ void alarmHandler(int signal);
  *
  * @return The size of the transmitted frame (chars written).
  */
-int llwrite(int fd, const unsigned char *buf, int bufSize);
-
+int llwrite(unsigned char* buf, int bufSize);
 /**
  * Send a REJ packet when an error is detected in the received data.
  *
@@ -143,7 +134,7 @@ int writeRepPacket();
  * @param packet A pointer to the buffer where the constructed data packet will be stored.
  * @return The size of the received and processed data packet in bytes or -1 if an error occurs.
  */
-int llread(unsigned char *packet);
+int llread(unsigned char* packet);
 
 /**
  * Perform link layer closing procedures.
@@ -155,6 +146,6 @@ int llread(unsigned char *packet);
  * @param showStatistics If set to 1, display statistics; otherwise, set to 0.
  * @return 1 on successful closure, -1 on error.
  */
-int llclose(int showStatistics);
+int llclose(linkLayer connectionParameters, int showStatistics);
 
-#endif // _LINK_LAYER_H_
+#endif
