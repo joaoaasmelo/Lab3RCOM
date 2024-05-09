@@ -56,8 +56,8 @@ typedef enum
 #define ESCD 0x7d
 #define TR 0x03
 #define REC 0x01
-#define C_I1 0x80
-#define C_I0 0xc0
+#define C_I1 0xc0
+#define C_I0 0x80
 
 //Control packet
 #define C_FILE_SIZE 0

@@ -12,6 +12,11 @@ struct termios oldtio, newtio;
 LinkLayerState state = START; // Initial state
 
 
+
+////////////////////////////////////////////////
+// LLOPEN
+////////////////////////////////////////////////
+
 void stateMachineCheck(LinkLayerState* status, unsigned char byte, int type)
 {
     unsigned char save[2];
@@ -238,6 +243,7 @@ int resetAlarm() {
 
 }
 
+
 int llopen(linkLayer connectionParameters)
 {
     connection = connectionParameters;
@@ -304,6 +310,12 @@ int llopen(linkLayer connectionParameters)
 return 1;
 }
 
+
+
+
+////////////////////////////////////////////////
+// LLWRITE
+////////////////////////////////////////////////
 int llwrite(unsigned char *buf, int bufSize)
 {
    unsigned char trama_info[2*MAX_PAYLOAD_SIZE];
@@ -376,7 +388,7 @@ int llwrite(unsigned char *buf, int bufSize)
             alarmFlag = TRUE;
         }
         int k = 0; 
-
+        unsigned char temp;
         if(read(fd,buf_aux + k,1) > 0)
         {
             fprintf(stderr,"STate: %d", status_llwrite);
@@ -384,7 +396,7 @@ int llwrite(unsigned char *buf, int bufSize)
             stateMachineCheck(&status_llwrite, buf_aux[k], 0);
             if(status_llwrite == REJ)
             {
-                printf("Entrei no REJ\n");
+                printf("Entrei no REJ");
                 read(fd,buf_aux + k,1);
                 k++;
                 read(fd,buf_aux + k,1);
@@ -397,7 +409,7 @@ int llwrite(unsigned char *buf, int bufSize)
             {
                 printf("STOP achieved\n");
                 ns = (1+ns) % 2; 
-                //valid = TRUE;
+                valid = TRUE;
                 break;
             }
         }    
@@ -415,6 +427,10 @@ int llwrite(unsigned char *buf, int bufSize)
     return trama_info_size; 
 
 }
+
+////////////////////////////////////////////////
+// LLREAD
+////////////////////////////////////////////////
 
 int writeRepPacket() {
     unsigned char out[6];
@@ -541,17 +557,16 @@ int llread(unsigned char *packet) {
         if(numTries <= retrans_data_counter) {
             printf("%dº REJ sent.\n", numTries);
             numTries++;
-            llread(packet);
-            
+            llread(packet);// Recursive call to llread to receive the packet again.
         }else {
             printf("Max number of REJ reached.\n");
-            return -1;// return -1 if the number of tries is exceeded.
+            return -1;
         }
     }
 
     outbuf[3] = outbuf[1] ^ outbuf[2];
     int bytes = write(fd, outbuf, 5); // Send the response frame.
-    numTries = 1;// Reset the number of tries.
+
     printf("Acknowledgement frame sent.\n");
 
     int size_final = j;
@@ -590,6 +605,9 @@ sendDiscCommand()
     return alarmCounter;
 }
 
+////////////////////////////////////////////////
+// LLCLOSE
+////////////////////////////////////////////////
 int llclose(linkLayer connection ,int showStatistics) {
     alarmFlag = FALSE;
     alarmCounter = 0;
