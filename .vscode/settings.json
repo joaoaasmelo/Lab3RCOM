@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "readnoncanonical.h": "c"
+        "readnoncanonical.h": "c",
+        "linklayer.h": "c"
     }
 }
