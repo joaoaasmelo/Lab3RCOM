@@ -4,12 +4,13 @@
 
 // MISC
 #define _POSIX_SOURCE 1 // POSIX compliant source
-int alarmFlag = FALSE, alarmCounter = 0, timeout = 0, retrans_data_counter = 0, ns = 0;
+int alarmFlag = FALSE, alarmCounter = 0, timeout = 0, retrans_data_counter = 0, ns = 0, numTries = 1;
 int check = TRUE, status_llwrite = 0, status_llread = 0, status_llclose = 0, fd;
 int valid = TRUE, nr = 1;
 linkLayer connection;
 struct termios oldtio, newtio;
 LinkLayerState state = START; // Initial state
+
 
 void stateMachineCheck(LinkLayerState* status, unsigned char byte, int type)
 {
@@ -297,21 +298,20 @@ int llopen(linkLayer connectionParameters)
             break;
         }
         default: 
-            return NOT_DEFINED; 
+            return -1; 
             break; 
     }  
-
-    return 1;
+return 1;
 }
 
 int llwrite(unsigned char *buf, int bufSize)
 {
    unsigned char trama_info[2*MAX_PAYLOAD_SIZE];
 
-    trama_info[0] = FLAG;                               //F
-    trama_info[1] = A_SET;                              //A
-    trama_info[2] = (ns == 0) ? C_I0 : C_I1;            //C
-    trama_info[3] = trama_info[1] ^ trama_info[2];      //BCC1
+    trama_info[0] = FLAG;
+    trama_info[1] = A_SET;
+    trama_info[2] = (ns == 0) ? C_I0 : C_I1;
+    trama_info[3] = trama_info[1] ^ trama_info[2]; 
 
     int trama_info_size = 0; 
     int bcc_2 = 0; 
@@ -366,11 +366,9 @@ int llwrite(unsigned char *buf, int bufSize)
     (void)signal(SIGALRM,alarmHandler);    
     while(status_llwrite != STOP && alarmCounter < (connection.numTries + 1)) 
     {
-        //printf("The value of the alarmFlag %d\n", alarmFlag);
-        //printf("status_llwrite == REJ%d\n",status_llwrite == REJ);
-        //printf("the value of the connection.timeout %d\n", connection.timeout);
-        if(!alarmFlag || status_llwrite == REJ) //|| status_llwrite == REJ)
+        if(!alarmFlag || status_llwrite == REJ)
         {
+            if(status_llwrite == REJ) printf("REJ received, resending packet.\n");
             status_llwrite = START; 
             fprintf(stderr,"Sent Packet: %d\n",ns);
             int byte_written = write(fd,trama_info,trama_info_size);
@@ -378,40 +376,41 @@ int llwrite(unsigned char *buf, int bufSize)
             alarmFlag = TRUE;
         }
         int k = 0; 
-        unsigned char temp;
-    if(read(fd,buf_aux + k,1) > 0)
-    {
-        fprintf(stderr,"STate: %d", status_llwrite);
-             
-        stateMachineCheck(&status_llwrite, buf_aux[k], 0);
-        if(status_llwrite == REJ)
+
+        if(read(fd,buf_aux + k,1) > 0)
         {
-            printf("Entrei no REJ");
-            read(fd,buf_aux + k,1);
+            fprintf(stderr,"STate: %d", status_llwrite);
+                
+            stateMachineCheck(&status_llwrite, buf_aux[k], 0);
+            if(status_llwrite == REJ)
+            {
+                printf("Entrei no REJ\n");
+                read(fd,buf_aux + k,1);
+                k++;
+                read(fd,buf_aux + k,1);
+                k++;    
+            }
+            fprintf(stderr,"Buf: %02x \n", buf_aux[k]);
             k++;
-            read(fd,buf_aux + k,1);
-            k++;    
-        }
-        fprintf(stderr,"Buf: %02x \n", buf_aux[k]);
-        k++;
-        printf("the value of the status is %d\n", status_llwrite);
-        if(status_llwrite == STOP)
+            printf("the value of the status is %d\n", status_llwrite);
+            if(status_llwrite == STOP)
+            {
+                printf("STOP achieved\n");
+                ns = (1+ns) % 2; 
+                //valid = TRUE;
+                break;
+            }
+        }    
+    }
+
+        status_llwrite = START;
+        alarmFlag = FALSE;
+        if(alarmCounter >= (connection.numTries + 1))
         {
-            printf("STOP achieved\n");
-            ns = (1+ns) % 2; 
-            valid = TRUE;
-            break;
+            alarmCounter = 0; 
+            llclose(connection, 0);
+            return -1;
         }
-    }    
-    }
-    status_llwrite = START;
-    alarmFlag = FALSE;
-    if(alarmCounter >= (connection.numTries + 1))
-    {
-        alarmCounter = 0; 
-        llclose(connectionParameters, 0);
-        exit(1);
-    }
 
     return trama_info_size; 
 
@@ -450,20 +449,20 @@ int llread(unsigned char *packet) {
     unsigned char buf[MAX_PAYLOAD_SIZE * 2]; // Temporary buffer for received data.
     unsigned char initialPack[MAX_PAYLOAD_SIZE]; // Buffer for storing the initial packet data.
 
-    int sz = 0;
+    int size = 0;
     status_llread = START;
     memset(packet, 0, sizeof(packet)); // Initialize the packet buffer.
 
     while (1) {
-        if (read(fd, buf + sz, 1) > 0) {
-            if (sz + 1 > MAX_PAYLOAD_SIZE * 2) {
+        if (read(fd, buf + size, 1) > 0) {
+            if (size + 1 > MAX_PAYLOAD_SIZE * 2) {
                 // If the flag couldn't be found in the end packet, send a REJ packet.
                 printf("The flag couldn't be found in the end of the packet\n");
                 writeRepPacket();
                 return -1;
             }
-            stateMachineCheck(&status_llread, buf[sz], 1); // Process the received data.
-            sz++;
+            stateMachineCheck(&status_llread, buf[size], 1); // Process the received data.
+            size++;
             if (status_llread == STOP) {
                 printf("Received complete frame\n");
                 break;
@@ -473,17 +472,17 @@ int llread(unsigned char *packet) {
     status_llread = START;
 
     int bcc_2 = 0;
-    if (buf[sz - 3] == ESC && buf[sz - 2] == ESCD) {
+    if (buf[size - 3] == ESC && buf[size - 2] == ESCD) {
         bcc_2 = ESC;
-        sz--;
-    } else if (buf[sz - 3] == ESC && buf[sz - 2] == ESCE) {
+        size--;
+    } else if (buf[size - 3] == ESC && buf[size - 2] == ESCE) {
         bcc_2 = FLAG;
-        sz--;
+        size--;
     } else {
-        bcc_2 = buf[sz - 2];
+        bcc_2 = buf[size - 2];
     }
 
-    for (int l = 0; l < sz - 6; l++) {
+    for (int l = 0; l < size - 6; l++) {
         initialPack[l] = buf[4 + l];
     }
 
@@ -494,7 +493,7 @@ int llread(unsigned char *packet) {
     packet[3] = initialPack[3];
 
     int j = 4;
-    for (int i = 4; i < sz - 6; i++) {
+    for (int i = 4; i < size - 6; i++) {
         if (initialPack[i] == ESC && initialPack[i + 1] == ESCE) {
             packet[j++] = FLAG;
             i++;
@@ -534,19 +533,29 @@ int llread(unsigned char *packet) {
         else {
             outbuf[2] = C_REJ0;
         }
+
         printf("Bad packet detected.\n");
         outbuf[3] = outbuf[1] ^ outbuf[2];
         write(fd, outbuf, 5);
-        return -1;
+
+        if(numTries <= retrans_data_counter) {
+            printf("%dº REJ sent.\n", numTries);
+            numTries++;
+            llread(packet);
+            
+        }else {
+            printf("Max number of REJ reached.\n");
+            return -1;// return -1 if the number of tries is exceeded.
+        }
     }
 
     outbuf[3] = outbuf[1] ^ outbuf[2];
     int bytes = write(fd, outbuf, 5); // Send the response frame.
-
+    numTries = 1;// Reset the number of tries.
     printf("Acknowledgement frame sent.\n");
 
-    int sz_final = j;
-    return sz_final; // Return the size of the received packet.
+    int size_final = j;
+    return size_final; // Return the size of the received packet.
 }
 
 sendDiscCommand()
@@ -581,10 +590,9 @@ sendDiscCommand()
     return alarmCounter;
 }
 
-int llclose(linkLayer connectionParameters,int showStatistics) {
+int llclose(linkLayer connection ,int showStatistics) {
     alarmFlag = FALSE;
     alarmCounter = 0;
-    connection = connectionParameters;
 
     switch (connection.role) {
         case TRANSMITTER:
@@ -607,6 +615,7 @@ int llclose(linkLayer connectionParameters,int showStatistics) {
             break;
 
         case RECEIVER:
+        if(1 == 2){}
             // Receive DISC command.
             unsigned char buf2[BUF_SIZE + 1];
             while (1) {
