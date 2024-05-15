@@ -316,12 +316,7 @@ int llwrite(unsigned char *buf, int bufSize)
     int trama_info_size = 0; 
     int bcc_2 = 0; 
 
-    bcc_2 ^= buf[0];
-    bcc_2 ^= buf[1];
-    bcc_2 ^= buf[2]; 
-    bcc_2 ^= buf[3];
-
-    for(int j = 4; j < bufSize; j++)
+    for(int j = 0; j < bufSize; j++)
     { 
         bcc_2 ^= buf[j];
     }
@@ -370,21 +365,22 @@ int llwrite(unsigned char *buf, int bufSize)
         {
             if(status_llwrite == REJ) printf("REJ received, resending packet.\n");
             status_llwrite = START; 
-            fprintf(stderr,"Sent Packet: %d\n",ns);
+            fprintf(stderr,"Sent Packet: NS=%d\n",ns);
             int byte_written = write(fd,trama_info,trama_info_size);
             alarm(connection.timeOut);
             alarmFlag = TRUE;
         }
+
         int k = 0; 
 
         if(read(fd,buf_aux + k,1) > 0)
         {
-            fprintf(stderr,"STate: %d", status_llwrite);
+            fprintf(stderr,"State: %d", status_llwrite);
                 
             stateMachineCheck(&status_llwrite, buf_aux[k], 0);
             if(status_llwrite == REJ)
             {
-                printf("Entrei no REJ\n");
+                printf("Buf: %02x Entrei no REJ\n", buf_aux[k]);
                 read(fd,buf_aux + k,1);
                 k++;
                 read(fd,buf_aux + k,1);
@@ -392,12 +388,10 @@ int llwrite(unsigned char *buf, int bufSize)
             }
             fprintf(stderr,"Buf: %02x \n", buf_aux[k]);
             k++;
-            printf("the value of the status is %d\n", status_llwrite);
             if(status_llwrite == STOP)
             {
                 printf("STOP achieved\n");
                 ns = (1+ns) % 2; 
-                //valid = TRUE;
                 break;
             }
         }    
@@ -408,7 +402,6 @@ int llwrite(unsigned char *buf, int bufSize)
         if(alarmCounter >= (connection.numTries + 1))
         {
             alarmCounter = 0; 
-            llclose(connection, 0);
             return -1;
         }
 
@@ -445,7 +438,7 @@ int writeRepPacket() {
     return 5; // The size of the sent REJ packet is always 5 bytes.
 }
 
-int llread(unsigned char *packet) {
+/*int llread(unsigned char *packet) {
     unsigned char buf[MAX_PAYLOAD_SIZE * 2]; // Temporary buffer for received data.
     unsigned char initialPack[MAX_PAYLOAD_SIZE]; // Buffer for storing the initial packet data.
 
@@ -541,7 +534,6 @@ int llread(unsigned char *packet) {
         if(numTries <= retrans_data_counter) {
             printf("%dº REJ sent.\n", numTries);
             numTries++;
-            llread(packet);
             
         }else {
             printf("Max number of REJ reached.\n");
@@ -556,6 +548,122 @@ int llread(unsigned char *packet) {
 
     int size_final = j;
     return size_final; // Return the size of the received packet.
+}*/
+
+int llread(unsigned char * packet) {
+
+    int size, bcc_cal, bcc_2;
+    unsigned char buf[2 * MAX_PAYLOAD_SIZE];
+    unsigned char initialPack[MAX_PAYLOAD_SIZE]; // Buffer for storing the initial packet data.
+    unsigned char outbuf[6]; // Buffer for constructing response frame.
+    
+    while (numTries <= retrans_data_counter) {
+        // Reset the variables for each new attempt
+        size = 0;
+        bcc_cal = 0;
+
+        status_llread = START;
+        memset(packet, 0, sizeof(packet)); // Initialize the packet buffer.
+        memset(buf, 0, sizeof(buf)); // Initialize the temporary buffer.
+        memset(initialPack, 0, sizeof(initialPack)); // Initialize the initial packet buffer.
+        memset(outbuf, 0, sizeof(outbuf)); // Initialize the response frame buffer.
+
+        while (1) {
+            if (read(fd, buf + size, 1) > 0) {
+                if (size + 1 > MAX_PAYLOAD_SIZE * 2) {
+                    // If the flag couldn't be found in the end packet, send a REJ packet.
+                    printf("The flag couldn't be found in the end of the packet\n");
+                    writeRepPacket();
+                    return -1;
+                }
+                stateMachineCheck(&status_llread, buf[size], 1); // Process the received data.
+                size++;
+                if (status_llread == STOP) {
+                    printf("Received complete frame\n");
+                    break;
+                }
+            }
+        }
+        status_llread = START;
+
+        int bcc_2 = 0;
+        if (buf[size - 3] == ESC && buf[size - 2] == ESCD) {
+            bcc_2 = ESC;
+            size--;
+        } else if (buf[size - 3] == ESC && buf[size - 2] == ESCE) {
+            bcc_2 = FLAG;
+            size--;
+        } else {
+            bcc_2 = buf[size - 2];
+        }
+
+        for (int l = 0; l < size - 6; l++) {
+            initialPack[l] = buf[4 + l];
+        }
+
+        // Extract data from the received frame and handle escape sequences.
+        packet[0] = initialPack[0];
+        packet[1] = initialPack[1];
+        packet[2] = initialPack[2];
+        packet[3] = initialPack[3];
+
+        int j = 4;
+        for (int i = 4; i < size - 6; i++) {
+            if (initialPack[i] == ESC && initialPack[i + 1] == ESCE) {
+                packet[j++] = FLAG;
+                i++;
+            } else if (initialPack[i] == ESC && initialPack[i + 1] == ESCD) {
+                packet[j++] = ESC;
+                i++;
+            } else packet[j++] = initialPack[i];
+        }
+        
+        //calculate bcc
+        bcc_cal ^= packet[0];
+        bcc_cal ^= packet[1];
+        bcc_cal ^= packet[2];
+        bcc_cal ^= packet[3];
+
+        for (int i = 4; i < j; i++) {
+            bcc_cal ^= packet[i];
+        }
+
+        outbuf[0] = FLAG;
+        outbuf[1] = TR;
+        outbuf[4] = FLAG;
+
+        // Check if the BCC is correct
+        if(bcc_cal == bcc_2){
+            nr = (nr + 1) % 2;
+            if(nr)  outbuf[2] = C_RR1;
+            else    outbuf[2] = C_RR0;
+
+            outbuf[3] = outbuf[1] ^ outbuf[2];
+            if(write(fd, outbuf, 5) < 0) {
+                printf("Error sending RR.\n");
+                return -1;
+            }
+            printf("Acknowledgement frame sent.\n");
+
+            return j;// Return the size of the received packet.
+            
+        }else if(bcc_cal != bcc_2){
+            if(nr) outbuf[2] = C_REJ1;
+            else   outbuf[2] = C_REJ0;
+
+            printf("Bcc_cal: %02x and Bcc_2: %02x\n", bcc_cal, bcc2);
+
+            printf("Bad packet detected.\n");
+            outbuf[3] = outbuf[1] ^ outbuf[2];
+            write(fd, outbuf, 5);
+
+            printf("%dº REJ sent.\n", numTries);
+            numTries++;
+        }
+
+    }
+    // If the loop ends, it means the maximum number of retries was reached without success
+    return -1; // Indicate failure
 }
 
 sendDiscCommand()
@@ -589,6 +697,7 @@ sendDiscCommand()
     }
     return alarmCounter;
 }
+
 
 int llclose(linkLayer connection ,int showStatistics) {
     alarmFlag = FALSE;
