@@ -438,118 +438,6 @@ int writeRepPacket() {
     return 5; // The size of the sent REJ packet is always 5 bytes.
 }
 
-/*int llread(unsigned char *packet) {
-    unsigned char buf[MAX_PAYLOAD_SIZE * 2]; // Temporary buffer for received data.
-    unsigned char initialPack[MAX_PAYLOAD_SIZE]; // Buffer for storing the initial packet data.
-
-    int size = 0;
-    status_llread = START;
-    memset(packet, 0, sizeof(packet)); // Initialize the packet buffer.
-
-    while (1) {
-        if (read(fd, buf + size, 1) > 0) {
-            if (size + 1 > MAX_PAYLOAD_SIZE * 2) {
-                // If the flag couldn't be found in the end packet, send a REJ packet.
-                printf("The flag couldn't be found in the end of the packet\n");
-                writeRepPacket();
-                return -1;
-            }
-            stateMachineCheck(&status_llread, buf[size], 1); // Process the received data.
-            size++;
-            if (status_llread == STOP) {
-                printf("Received complete frame\n");
-                break;
-            }
-        }
-    }
-    status_llread = START;
-
-    int bcc_2 = 0;
-    if (buf[size - 3] == ESC && buf[size - 2] == ESCD) {
-        bcc_2 = ESC;
-        size--;
-    } else if (buf[size - 3] == ESC && buf[size - 2] == ESCE) {
-        bcc_2 = FLAG;
-        size--;
-    } else {
-        bcc_2 = buf[size - 2];
-    }
-
-    for (int l = 0; l < size - 6; l++) {
-        initialPack[l] = buf[4 + l];
-    }
-
-    // Extract data from the received frame and handle escape sequences.
-    packet[0] = initialPack[0];
-    packet[1] = initialPack[1];
-    packet[2] = initialPack[2];
-    packet[3] = initialPack[3];
-
-    int j = 4;
-    for (int i = 4; i < size - 6; i++) {
-        if (initialPack[i] == ESC && initialPack[i + 1] == ESCE) {
-            packet[j++] = FLAG;
-            i++;
-        } else if (initialPack[i] == ESC && initialPack[i + 1] == ESCD) {
-            packet[j++] = ESC;
-            i++;
-        } else packet[j++] = initialPack[i];
-    }
-
-    int bcc_cal = 0;
-    bcc_cal ^= packet[0];
-    bcc_cal ^= packet[1];
-    bcc_cal ^= packet[2];
-    bcc_cal ^= packet[3];
-
-    for (int i = 4; i < j; i++) {
-        bcc_cal ^= packet[i];
-    }
-
-    unsigned char outbuf[6]; // Buffer for constructing response frame.
-    outbuf[0] = FLAG;
-    outbuf[1] = TR;
-    outbuf[4] = FLAG;
-
-    if(bcc_cal == bcc_2){
-        nr = (nr + 1) % 2;
-        if(nr) {
-            outbuf[2] = C_RR1;
-        }
-        else {
-            outbuf[2] = C_RR0;
-        }
-    }else if(bcc_cal != bcc_2){
-        if(nr) {
-            outbuf[2] = C_REJ1;
-        }
-        else {
-            outbuf[2] = C_REJ0;
-        }
-
-        printf("Bad packet detected.\n");
-        outbuf[3] = outbuf[1] ^ outbuf[2];
-        write(fd, outbuf, 5);
-
-        if(numTries <= retrans_data_counter) {
-            printf("%dº REJ sent.\n", numTries);
-            numTries++;
-            
-        }else {
-            printf("Max number of REJ reached.\n");
-            return -1;// return -1 if the number of tries is exceeded.
-        }
-    }
-
-    outbuf[3] = outbuf[1] ^ outbuf[2];
-    int bytes = write(fd, outbuf, 5); // Send the response frame.
-    numTries = 1;// Reset the number of tries.
-    printf("Acknowledgement frame sent.\n");
-
-    int size_final = j;
-    return size_final; // Return the size of the received packet.
-}*/
-
 int llread(unsigned char * packet) {
 
     int size, bcc_cal, bcc_2;
@@ -563,9 +451,9 @@ int llread(unsigned char * packet) {
         bcc_cal = 0;
 
         status_llread = START;
-        memset(packet, 0, sizeof(packet)); // Initialize the packet buffer.
-        memset(buf, 0, sizeof(buf)); // Initialize the temporary buffer.
-        memset(initialPack, 0, sizeof(initialPack)); // Initialize the initial packet buffer.
+        memset(packet, 0, sizeof(packet)); // buffer with the data for the application layer
+        memset(buf, 0, sizeof(buf)); // buffer with the data from the serial port
+        memset(initialPack, 0, sizeof(initialPack)); // buffer with the data from the serial port
         memset(outbuf, 0, sizeof(outbuf)); // Initialize the response frame buffer.
 
         while (1) {
@@ -586,7 +474,7 @@ int llread(unsigned char * packet) {
         }
         status_llread = START;
 
-        int bcc_2 = 0;
+        bcc_2 = 0;
         if (buf[size - 3] == ESC && buf[size - 2] == ESCD) {
             bcc_2 = ESC;
             size--;
@@ -597,36 +485,24 @@ int llread(unsigned char * packet) {
             bcc_2 = buf[size - 2];
         }
 
+        //puts ONLY the data in the initialPack buffer
         for (int l = 0; l < size - 6; l++) {
-            initialPack[l] = buf[4 + l];
+            initialPack[l] = buf[4 + l]; //data begins at the 5th byte
         }
 
-        // Extract data from the received frame and handle escape sequences.
-        packet[0] = initialPack[0]; //??
-        packet[1] = initialPack[1];
-        packet[2] = initialPack[2];
-        packet[3] = initialPack[3];
-
-        int j = 4;
-        for (int i = 4; i < size - 6; i++) {
-            if (initialPack[i] == ESC && initialPack[i + 1] == ESCE) {
-                packet[j++] = FLAG; //j++;
-                i++; // i+=2;
-            } else if (initialPack[i] == ESC && initialPack[i + 1] == ESCD) {
-                packet[j++] = ESC;
+        // Byte destuffing
+        int j = 0;
+        for(int i = 0; i < size - 6; i++) {
+            if(initialPack[i] == ESC && initialPack[i + 1] == ESCE) {
+                packet[j] = FLAG; j++;
                 i++;
-            } else packet[j++] = initialPack[i];
+            } else if(initialPack[i] == ESC && initialPack[i + 1] == ESCD) {
+                packet[j] = ESC; j++;
+                i++;
+            } else {packet[j] = initialPack[i];j++;}
         }
-        //??
-        //calculate bcc
-        bcc_cal ^= packet[0];
-        bcc_cal ^= packet[1];
-        bcc_cal ^= packet[2];
-        bcc_cal ^= packet[3];
 
-        for (int i = 4; i < j; i++) {
-            bcc_cal ^= packet[i];
-        }
+        for (int i = 0; i < j; i++) bcc_cal ^= packet[i];
 
         outbuf[0] = FLAG;
         outbuf[1] = TR;
@@ -746,7 +622,7 @@ int llclose(linkLayer connection ,int showStatistics) {
 
             // Receive UA response.
             unsigned char buf2[BUF_SIZE + 1];
-            status_llclose = 0;
+            status_llclose = START;
             while (1) {
                 int bytes = read(fd, buf2, 1);
                 stateMachineCheck(&status_llclose, buf2[0], 0);
