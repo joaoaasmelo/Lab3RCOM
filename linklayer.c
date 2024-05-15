@@ -555,7 +555,9 @@ sendDiscCommand()
     {
         if(!alarmFlag)
         {
+            printf("################################\n");
             printf("DISC sended to close connection.\n");
+            printf("################################\n");
             status_llclose = START; 
             write(fd,buf,5);
             alarm(connection.timeOut);
@@ -601,9 +603,9 @@ int llclose(linkLayer connection ,int showStatistics) {
 
         case RECEIVER:
             // Receive DISC command.
-            while (1) {
-                int bytes = read(fd, buf2, 1);
-                stateMachineCheck(&status_llclose, buf2[0], 0);
+            while (status_llclose != STOP) {
+                int bytes = read(fd, buf, 1);
+                stateMachineCheck(&status_llclose, buf[0], 0);
                 if (status_llclose == STOP) {
                     printf("Transmitter DISC received.\n");
                     break;
@@ -616,14 +618,15 @@ int llclose(linkLayer connection ,int showStatistics) {
             buf[2] = C_DISC;
             buf[3] = buf[1] ^ buf[2];
             buf[4] = FLAG;
-            int bytes = write(fd, buf2, 5);
+            int bytes = write(fd, buf, 5);
+            printf("################################\n");
             printf("DISC sended to close connection.\n");
-
+            printf("################################\n");
 
             // Receive UA response.
             unsigned char buf2[BUF_SIZE + 1];
             status_llclose = START;
-            while (1) {
+            while (status_llclose != STOP) {
                 int bytes = read(fd, buf2, 1);
                 stateMachineCheck(&status_llclose, buf2[0], 0);
                 if (status_llclose == STOP) {
