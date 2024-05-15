@@ -701,6 +701,7 @@ sendDiscCommand()
 int llclose(linkLayer connection ,int showStatistics) {
     alarmFlag = FALSE;
     alarmCounter = 0;
+    unsigned char buf[BUF_SIZE + 1];
 
     switch (connection.role) {
         case TRANSMITTER:
@@ -709,7 +710,6 @@ int llclose(linkLayer connection ,int showStatistics) {
             }
 
             // Send UA (Unnumbered Acknowledgment).
-            unsigned char buf[BUF_SIZE + 1];
             buf[0] = FLAG;
             buf[1] = REC;
             buf[2] = C_UA;
@@ -723,9 +723,7 @@ int llclose(linkLayer connection ,int showStatistics) {
             break;
 
         case RECEIVER:
-        if(1 == 2){}
             // Receive DISC command.
-            unsigned char buf2[BUF_SIZE + 1];
             while (1) {
                 int bytes = read(fd, buf2, 1);
                 stateMachineCheck(&status_llclose, buf2[0], 0);
@@ -736,28 +734,27 @@ int llclose(linkLayer connection ,int showStatistics) {
             }
 
             // Send DISC response.
-            buf2[0] = FLAG;
-            buf2[1] = REC;
-            buf2[2] = C_DISC;
-            buf2[3] = buf2[1] ^ buf2[2];
-            buf2[4] = FLAG;
+            buf[0] = FLAG;
+            buf[1] = REC;
+            buf[2] = C_DISC;
+            buf[3] = buf[1] ^ buf[2];
+            buf[4] = FLAG;
             int bytes = write(fd, buf2, 5);
             printf("DISC sended to close connection.\n");
 
 
             // Receive UA response.
-            unsigned char buf3[BUF_SIZE + 1];
-            unsigned int counter = 0;
+            unsigned char buf2[BUF_SIZE + 1];
+            status_llclose = 0;
             while (1) {
-                int bytes = read(fd, buf3, 1);
-                stateMachineCheck(&status_llclose, buf3[0], 0);
+                int bytes = read(fd, buf2, 1);
+                stateMachineCheck(&status_llclose, buf2[0], 0);
                 if (status_llclose == STOP) {
                     printf("########################################\n");
                     printf("UA received, connection is being closed.\n");
                     printf("########################################\n");
                     break;
                 }
-                counter++;
             }
             break;
 
