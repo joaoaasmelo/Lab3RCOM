@@ -202,8 +202,7 @@ int sendSet()
 
 int sendUAreadSet()
 {
-   
- unsigned char buffer[BUF_SIZE +1] = {0};
+    unsigned char buffer[BUF_SIZE +1] = {0};
     while(TRUE)
     {
         int bytes = read(fd,buffer,1);
@@ -602,7 +601,7 @@ int llread(unsigned char * packet) {
         }
 
         // Extract data from the received frame and handle escape sequences.
-        packet[0] = initialPack[0];
+        packet[0] = initialPack[0]; //??
         packet[1] = initialPack[1];
         packet[2] = initialPack[2];
         packet[3] = initialPack[3];
@@ -610,14 +609,14 @@ int llread(unsigned char * packet) {
         int j = 4;
         for (int i = 4; i < size - 6; i++) {
             if (initialPack[i] == ESC && initialPack[i + 1] == ESCE) {
-                packet[j++] = FLAG;
-                i++;
+                packet[j++] = FLAG; //j++;
+                i++; // i+=2;
             } else if (initialPack[i] == ESC && initialPack[i + 1] == ESCD) {
                 packet[j++] = ESC;
                 i++;
             } else packet[j++] = initialPack[i];
         }
-        
+        //??
         //calculate bcc
         bcc_cal ^= packet[0];
         bcc_cal ^= packet[1];
@@ -651,7 +650,7 @@ int llread(unsigned char * packet) {
             if(nr) outbuf[2] = C_REJ1;
             else   outbuf[2] = C_REJ0;
 
-            printf("Bcc_cal: %02x and Bcc_2: %02x\n", bcc_cal, bcc2);
+            printf("Bcc_cal: %02x and Bcc_2: %02x\n", bcc_cal, bcc_2);
 
             printf("Bad packet detected.\n");
             outbuf[3] = outbuf[1] ^ outbuf[2];
