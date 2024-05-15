@@ -5,8 +5,9 @@
 // MISC
 #define _POSIX_SOURCE 1 // POSIX compliant source
 int alarmFlag = FALSE, alarmCounter = 0, timeout = 0, retrans_data_counter = 0, ns = 0, numTries = 1;
-int check = TRUE, status_llwrite = 0, status_llread = 0, status_llclose = 0, fd;
+int check = TRUE, fd;
 int valid = TRUE, nr = 1;
+char status_llwrite = START, status_llread = START, status_llclose = START;
 linkLayer connection;
 struct termios oldtio, newtio;
 LinkLayerState state = START; // Initial state
@@ -135,7 +136,7 @@ void stateMachineCheck(LinkLayerState* status, unsigned char byte, int type)
             break;
 
         case C_INF:
-            if(byte == (save[0]^save[1])) { //se  A^C = BBC ?
+            if(byte == (save[0]^save[1])) {
                 *status = BCC1_RCV;
             }
             else if(byte == FLAG) {
@@ -364,7 +365,7 @@ int llwrite(unsigned char *buf, int bufSize)
         {
             if(status_llwrite == REJ) printf("REJ received, resending packet.\n");
             status_llwrite = START; 
-            fprintf(stderr,"Sent Packet: NS=%d\n",ns);
+            fprintf(stderr,"Sent Packet: I%d\n",ns);
             int byte_written = write(fd,trama_info,trama_info_size);
             alarm(connection.timeOut);
             alarmFlag = TRUE;
@@ -374,7 +375,7 @@ int llwrite(unsigned char *buf, int bufSize)
 
         if(read(fd,buf_aux + k,1) > 0)
         {
-            fprintf(stderr,"State: %d", status_llwrite);
+            fprintf(stderr,"State: %c : ", status_llwrite);
                 
             stateMachineCheck(&status_llwrite, buf_aux[k], 0);
             if(status_llwrite == REJ)
